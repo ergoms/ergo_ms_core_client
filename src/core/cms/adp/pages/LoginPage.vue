@@ -8,7 +8,6 @@ import { validateLoginForm } from '@/js/validation'
 import { authGuard } from '@/core/cms/js/authGuard'
 import { consumePostLoginReturnPath } from '@/core/cms/js/postLoginReturn.js'
 import { useUserStore } from '@/core/cms/js/userStore.js'
-import { getUserMenu } from '@/core/cms/js/menuService.js'
 import { useRegistrationSettings } from '@/core/cms/adp/js/useRegistrationSettings.js'
 import { usePasswordResetSettings } from '@/core/cms/adp/js/usePasswordResetSettings.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
@@ -64,20 +63,15 @@ const submitForm = async () => {
     const authResult = await authorization(form.login, form.password, form.rememberUser)
 
     if (authResult.success === true) {
-      // Готовим пользователя и меню до перехода в кабинет, иначе данные приходят
-      // поэтапно и аватар/инициалы дёргаются при первом входе.
-      await Promise.all([
-        useUserStore().ensureUserReady(),
-        getUserMenu(),
-        import('@/js/theme-service.js').then(({ syncSiteThemeFromApi }) => syncSiteThemeFromApi()),
-      ])
+      // Меню и права уже приехали в ответе логина (session_bootstrap).
+      await useUserStore().ensureUserReady()
 
-      // Запускаем проверку токена после успешной авторизации
       authGuard.startTokenValidation()
-      // replace — чтобы Back не возвращал на /login.
-      // После выкидывания из сессии — на сохранённый путь, иначе /home.
       const returnPath = consumePostLoginReturnPath()
       router.replace(returnPath || { name: 'AppHome' })
+      import('@/js/theme-service.js').then(({ syncSiteThemeFromApi }) => {
+        syncSiteThemeFromApi()
+      }).catch(() => {})
     } else {
       // Обработка ошибок от сервера
       if (authResult.errors && typeof authResult.errors === 'object') {
