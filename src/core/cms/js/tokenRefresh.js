@@ -174,7 +174,7 @@ export function takePendingSessionBootstrap() {
   return data
 }
 
-function storePendingSessionBootstrap(payload) {
+export function storePendingSessionBootstrap(payload) {
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     pendingSessionBootstrap = payload
   }

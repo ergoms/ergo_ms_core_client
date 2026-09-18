@@ -14,6 +14,7 @@ import {
   isServerLogoutFinalized,
   canAttemptTokenRefresh,
   wasLastRefreshTransient,
+  storePendingSessionBootstrap,
 } from '@/core/cms/js/tokenRefresh.js'
 import {
   isRateLimitActive,
@@ -41,6 +42,9 @@ export const authService = {
         
         if (response.success && response.data?.access) {
             tokenService.setTokens(response.data.access)
+            storePendingSessionBootstrap(
+              response.data.session_bootstrap ?? response.data.data?.session_bootstrap
+            )
             resetServerLogoutGate()
         }
         
