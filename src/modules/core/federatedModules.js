@@ -87,12 +87,128 @@ export async function ensureRemoteStyles(remoteName) {
 
 bridge.provide('shell.ensure_remote_styles', ensureRemoteStyles, { override: true })
 
+/** Дольше живой remoteEntry не отвечает: peer молчит, вкладку не держим. */
+const REMOTE_ENTRY_TIMEOUT_MS = 4000
+/** Повтор меню не открывает новую волну тех же зависших запросов. */
+const UNREACHABLE_COOLDOWN_MS = 20000
+
+/** @type {Map<string, number>} */
+const unreachableUntilByOrigin = new Map()
+/** @type {Set<string>} */
+const unreachableNoted = new Set()
+
+function entryOrigin(entryUrl) {
+  try {
+    const base = typeof location !== 'undefined' ? location.href : 'http://localhost/'
+    return new URL(entryUrl, base).origin
+  } catch {
+    return String(entryUrl || '')
+  }
+}
+
+function originCoolingDown(entryUrl) {
+  const origin = entryOrigin(entryUrl)
+  const until = unreachableUntilByOrigin.get(origin)
+  if (typeof until !== 'number') {
+    return false
+  }
+  if (until > Date.now()) {
+    return true
+  }
+  unreachableUntilByOrigin.delete(origin)
+  unreachableNoted.delete(origin)
+  return false
+}
+
+function noteUnreachable(entryUrl, remoteName) {
+  const origin = entryOrigin(entryUrl)
+  if (!origin) {
+    return
+  }
+  const cooling = (unreachableUntilByOrigin.get(origin) || 0) > Date.now()
+  if (!cooling) {
+    unreachableUntilByOrigin.set(origin, Date.now() + UNREACHABLE_COOLDOWN_MS)
+  }
+  if (unreachableNoted.has(origin)) {
+    return
+  }
+  unreachableNoted.add(origin)
+  logWarn(
+    `[federated] Remote ${remoteName} недоступен, остальные с того же адреса пропускаем до повтора`,
+  )
+}
+
+function isUnreachableError(error) {
+  const name = String(error?.name || '')
+  if (name === 'AbortError' || name === 'TimeoutError') {
+    return true
+  }
+  const message = String(error?.message || '').toLowerCase()
+  return (
+    message.includes('failed to fetch')
+    || message.includes('networkerror')
+    || message.includes('network error')
+    || message.includes('load failed')
+    || message.includes('timeout')
+    || message.includes('aborted')
+    || message.includes('gateway')
+    || message.includes('http 502')
+    || message.includes('http 503')
+    || message.includes('http 504')
+  )
+}
+
+/**
+ * import() нельзя оборвать, и script tag держит вкладку до 504.
+ * Короткий fetch при отказе peer отпускает соединение и не запускает вторую попытку.
+ * @param {string} entryUrl
+ */
+async function assertRemoteEntryReachable(entryUrl) {
+  if (typeof fetch !== 'function' || typeof AbortController === 'undefined') {
+    return
+  }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REMOTE_ENTRY_TIMEOUT_MS)
+  try {
+    const response = await fetch(entryUrl, {
+      signal: controller.signal,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    })
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      const error = new Error(`remoteEntry HTTP ${response.status}`)
+      error.name = 'TimeoutError'
+      throw error
+    }
+    if (!response.ok) {
+      throw new Error(`remoteEntry HTTP ${response.status}`)
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /**
  * @param {string} entryUrl
  * @param {string} remoteName
  * @returns {Promise<object|null>}
  */
 async function importRemoteEntry(entryUrl, remoteName) {
+  if (originCoolingDown(entryUrl)) {
+    const error = new Error(`remoteEntry недоступен: ${entryUrl}`)
+    error.name = 'TimeoutError'
+    throw error
+  }
+
+  try {
+    await assertRemoteEntryReachable(entryUrl)
+  } catch (error) {
+    if (isUnreachableError(error)) {
+      noteUnreachable(entryUrl, remoteName)
+    }
+    throw error
+  }
+
   try {
     const mod = await import(/* @vite-ignore */ entryUrl)
     if (mod?.default && typeof mod.default === 'object') {
@@ -105,6 +221,10 @@ async function importRemoteEntry(entryUrl, remoteName) {
       return mod
     }
   } catch (error) {
+    if (isUnreachableError(error)) {
+      noteUnreachable(entryUrl, remoteName)
+      throw error
+    }
     logWarn(`[federated] ESM import ${remoteName} (${entryUrl}) не удался, пробуем script tag`, error)
   }
 
@@ -150,6 +270,10 @@ export async function loadFederatedModules() {
         }
         return manifest
       } catch (error) {
+        if (isUnreachableError(error)) {
+          noteUnreachable(entry, name)
+          return null
+        }
         logError(`[federated] Ошибка загрузки remote ${name}`, error)
         return null
       }
