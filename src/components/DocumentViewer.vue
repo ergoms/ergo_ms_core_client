@@ -76,7 +76,7 @@
         </button>
       </div>
       <div v-else-if="kind === 'pdf'" class="document-viewer__pdf" :class="`document-viewer__pdf--cols-${pdfCols}`">
-        <canvas v-for="(n, idx) in visiblePages" :key="`${n}-${orientation}`" :ref="(el) => bindCanvas(idx, el)" class="document-viewer__canvas" v-csp-style="canvasStyles[idx] || emptyStyle" :aria-label="pageAriaLabel"/>
+        <canvas v-for="n in pageCount" :key="n" class="document-viewer__canvas" v-csp-style="canvasStyles[n - 1] || emptyStyle" :aria-label="pdfPageAria(n)"/>
       </div>
       <div v-else-if="kind === 'docx'" ref="docxHost" class="document-viewer__docx" v-csp-style="docxFitStyle"/>
       <div v-else class="document-viewer__state">
@@ -100,7 +100,7 @@ import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { logError } from '@/js/utils/logError.js'
 import { downloadMedia } from '@/js/utils/mediaDownload.js'
 import { DOCUMENT_PREVIEW_KIND, detectDocumentPreviewKind, fetchMediaBlob, } from '@/js/utils/mediaPreview.js'
-import { PAGE_GAP, canGoNext, fitPagesScale, lastVisiblePage, layoutColumns, pageRotation, visiblePageNumbers, waitForBox, } from '@/js/utils/documentViewerLayout.js'
+import { PDF_CSS_UNITS, layoutColumns, pageRotation, waitForBox, } from '@/js/utils/documentViewerLayout.js'
 import { countDocxPages, DOCX_PAGES_FIT_WIDTH, fitDocxToStage, renderDocxDocument } from '@/js/utils/documentViewerDocx.js'
 import { bindViewerStage, handlePdfStageWheel, unbindViewerStage, } from '@/js/utils/documentViewerStage.js'
 
@@ -108,7 +108,6 @@ const ZOOM_MIN = 0.5
 const ZOOM_MAX = 3
 const ZOOM_STEP = 0.25
 const STAGE_PAD = 24
-const WHEEL_PAGE_MS = 320
 
 const props = defineProps({
   src: {
@@ -143,20 +142,14 @@ const emptyStyle = {}
 const docxFitStyle = ref({})
 const docxHost = ref(null)
 const stageRef = ref(null)
-const canvasEls = []
 let pdfDoc = null
 let docxNative = null
 let loadToken = 0
 let renderToken = 0
-let wheelAt = 0
 let resizeTimer = 0
-let scrollAfterRender = 'top'
 let stageObserver = null
 
 const zoomLabel = computed(() => `${Math.round(zoom.value * 100)}%`)
-const visiblePages = computed(() => (
-  visiblePageNumbers(page.value, pagesPerView.value, pageCount.value)
-))
 const pdfCols = computed(() => layoutColumns(pagesPerView.value))
 const isDocxFitWidth = computed(() => (
   kind.value === DOCUMENT_PREVIEW_KIND.DOCX
@@ -167,12 +160,10 @@ const pagesOverflowLabel = computed(() => (
     ? t('components.documentViewer.pagesFitWidth')
     : t('components.documentViewer.pagesFour')
 ))
-const canNextPage = computed(() => (
-  canGoNext(page.value, pagesPerView.value, pageCount.value)
-))
 const pageEnd = computed(() => (
-  lastVisiblePage(page.value, pagesPerView.value, pageCount.value)
+  Math.min(pageCount.value, page.value + pdfCols.value - 1)
 ))
+const canNextPage = computed(() => pageEnd.value < pageCount.value)
 const pageLabel = computed(() => {
   if (pageEnd.value === page.value) {
     return t('components.documentViewer.pageOf', { current: page.value, total: pageCount.value })
@@ -183,23 +174,56 @@ const pageLabel = computed(() => {
     total: pageCount.value,
   })
 })
-const pageAriaLabel = computed(() => {
-  if (pageEnd.value === page.value) {
-    return t('components.documentViewer.pdfPage', { current: page.value, total: pageCount.value })
-  }
-  return t('components.documentViewer.pdfPageRange', {
-    from: page.value,
-    to: pageEnd.value,
-    total: pageCount.value,
-  })
-})
+function pdfPageAria(n) {
+  return t('components.documentViewer.pdfPage', { current: n, total: pageCount.value })
+}
 
-function bindCanvas(idx, el) {
-  canvasEls[idx] = el
+function stageCanvases() {
+  const stage = stageRef.value
+  if (!stage) {
+    return []
+  }
+  return [...stage.querySelectorAll('canvas.document-viewer__canvas')]
+}
+
+function canvasScrollTop(canvas, stage) {
+  return stage.scrollTop + canvas.getBoundingClientRect().top - stage.getBoundingClientRect().top
 }
 
 function goPage(next) {
-  page.value = Math.min(Math.max(1, Number(next) || 1), pageCount.value)
+  const cols = pdfCols.value
+  const raw = Math.min(Math.max(1, Number(next) || 1), pageCount.value)
+  const rowStart = Math.floor((raw - 1) / cols) * cols + 1
+  page.value = rowStart
+  const canvas = stageCanvases()[rowStart - 1]
+  const stage = stageRef.value
+  if (!canvas || !stage) {
+    return
+  }
+  stage.scrollTo({ top: Math.max(0, canvasScrollTop(canvas, stage) - 12), behavior: 'smooth' })
+}
+
+function onStageScroll() {
+  if (kind.value !== DOCUMENT_PREVIEW_KIND.PDF || !stageRef.value) {
+    return
+  }
+  const stage = stageRef.value
+  const cols = pdfCols.value
+  const canvases = stageCanvases()
+  let current = 1
+  for (let index = 0; index < pageCount.value; index += 1) {
+    const canvas = canvases[index]
+    if (!canvas) {
+      continue
+    }
+    if (canvasScrollTop(canvas, stage) <= stage.scrollTop + 24) {
+      current = index + 1
+    }
+  }
+  const rowStart = Math.floor((current - 1) / cols) * cols + 1
+  if (rowStart !== page.value) {
+    page.value = rowStart
+  }
 }
 
 function changeZoom(delta) {
@@ -215,30 +239,18 @@ function onStageWheel(event) {
   if (kind.value !== DOCUMENT_PREVIEW_KIND.PDF) {
     return
   }
-  const next = handlePdfStageWheel(event, {
-    stage: stageRef.value,
-    page: page.value,
-    pageCount: pageCount.value,
-    pagesPerView: pagesPerView.value,
-    wheelAt,
-    wheelPageMs: WHEEL_PAGE_MS,
+  handlePdfStageWheel(event, {
     zoomStep: ZOOM_STEP,
     changeZoom,
   })
-  if (!next) {
-    return
-  }
-  wheelAt = next.wheelAt
-  scrollAfterRender = next.scrollAfterRender
-  goPage(next.page)
 }
 
 function bindStage(el) {
-  bindViewerStage(el, onStageWheel, stageObserver)
+  bindViewerStage(el, onStageWheel, stageObserver, onStageScroll)
 }
 
 function unbindStage(el) {
-  unbindViewerStage(el, onStageWheel, stageObserver)
+  unbindViewerStage(el, onStageWheel, stageObserver, onStageScroll)
 }
 
 function applyDocxFit() {
@@ -258,12 +270,10 @@ function applyDocxFit() {
 function scheduleStageFit() {
   window.clearTimeout(resizeTimer)
   resizeTimer = window.setTimeout(() => {
-    if (loading.value) {
+    if (loading.value || kind.value === DOCUMENT_PREVIEW_KIND.PDF) {
       return
     }
-    if (pdfDoc && kind.value === DOCUMENT_PREVIEW_KIND.PDF) {
-      renderCurrentPdfPage()
-    } else if (kind.value === DOCUMENT_PREVIEW_KIND.DOCX) {
+    if (kind.value === DOCUMENT_PREVIEW_KIND.DOCX) {
       applyDocxFit()
     }
   }, 80)
@@ -283,12 +293,14 @@ async function downloadFile() {
 }
 
 function resetView() {
+  renderToken += 1
   pdfDoc = null
   page.value = 1
   pageCount.value = 1
   zoom.value = 1
   errorText.value = ''
   kind.value = detectDocumentPreviewKind(props.filename)
+  canvasStyles.value = []
   docxNative = null
   docxFitStyle.value = {}
   if (docxHost.value) {
@@ -296,7 +308,7 @@ function resetView() {
   }
 }
 
-async function renderCurrentPdfPage() {
+async function renderPdfStrip() {
   if (!pdfDoc || kind.value !== DOCUMENT_PREVIEW_KIND.PDF) {
     return
   }
@@ -304,58 +316,62 @@ async function renderCurrentPdfPage() {
   const { cancelPdfPageRenders, pdfPageViewport, renderPdfPage } = await import(
     '@/js/utils/documentViewerPdf.js'
   )
-  cancelPdfPageRenders()
-  const numbers = visiblePageNumbers(page.value, pagesPerView.value, pageCount.value)
-  const loaded = []
-  for (const number of numbers) {
-    loaded.push(await pdfDoc.getPage(number))
-    if (token !== renderToken) {
-      return
-    }
-  }
-  await nextTick()
-  if (!canvasEls[0]) {
-    await nextTick()
-  }
+  const total = pageCount.value
+  const rotation = pageRotation(orientation.value)
   const stage = await waitForBox(() => stageRef.value)
   if (!stage || token !== renderToken) {
     return
   }
-  const rotation = pageRotation(orientation.value)
-  const sizes = loaded.map((item) => {
-    const view = pdfPageViewport(item, { scale: 1, rotation })
-    return { width: view.width, height: view.height }
-  })
-  // offsetWidth не сжимается из‑за полосы прокрутки, иначе fit и зум начинают прыгать.
-  const availW = Math.max(80, stage.offsetWidth - STAGE_PAD)
-  const availH = Math.max(80, stage.offsetHeight - STAGE_PAD)
-  const scale = fitPagesScale(sizes, availW, availH, layoutColumns(pagesPerView.value), PAGE_GAP) * zoom.value
-  const styles = []
+  const scrollRatio = stage.scrollHeight > 1 ? stage.scrollTop / stage.scrollHeight : 0
+  const loaded = []
+  const sizes = []
+  for (let number = 1; number <= total; number += 1) {
+    const pdfPage = await pdfDoc.getPage(number)
+    if (token !== renderToken) {
+      return
+    }
+    loaded.push(pdfPage)
+    const view = pdfPageViewport(pdfPage, { scale: 1, rotation })
+    sizes.push({ width: view.width, height: view.height })
+  }
+  await nextTick()
+  if (!stageCanvases()[0]) {
+    await nextTick()
+  }
+  if (!stageRef.value || token !== renderToken) {
+    return
+  }
+  const scale = zoom.value * PDF_CSS_UNITS
+  cancelPdfPageRenders({ scale, rotation })
+  canvasStyles.value = sizes.map((size) => ({
+    width: `${Math.floor(size.width * scale)}px`,
+    height: `${Math.floor(size.height * scale)}px`,
+  }))
+  await nextTick()
+  if (!stageRef.value || token !== renderToken) {
+    return
+  }
+  if (scrollRatio > 0) {
+    stageRef.value.scrollTop = scrollRatio * stageRef.value.scrollHeight
+  }
+  const canvases = stageCanvases()
   for (let index = 0; index < loaded.length; index += 1) {
-    const canvas = canvasEls[index]
+    const canvas = canvases[index]
     if (!canvas || token !== renderToken) {
       return
     }
-    let size = null
     try {
-      size = await renderPdfPage(loaded[index], canvas, scale, { rotation })
+      const size = await renderPdfPage(loaded[index], canvas, scale, {
+        rotation,
+        stillCurrent: () => token === renderToken,
+      })
+      if (!size || token !== renderToken) {
+        return
+      }
     } catch (error) {
-      logError('DocumentViewer.renderCurrentPdfPage', error)
+      logError('DocumentViewer.renderPdfStrip', error)
       return
     }
-    if (!size || token !== renderToken) {
-      return
-    }
-    styles.push({ width: `${size.width}px`, height: `${size.height}px` })
-  }
-  if (token !== renderToken) {
-    return
-  }
-  canvasStyles.value = styles
-  await nextTick()
-  if (stageRef.value && scrollAfterRender) {
-    stageRef.value.scrollTop = scrollAfterRender === 'bottom' ? stageRef.value.scrollHeight : 0
-    scrollAfterRender = null
   }
 }
 
@@ -390,7 +406,8 @@ async function loadDocument() {
     }
     kind.value = result.kind
     if (result.kind === DOCUMENT_PREVIEW_KIND.PDF) {
-      const { openPdfDocument } = await import('@/js/utils/documentViewerPdf.js')
+      const { clearPdfPageCache, openPdfDocument } = await import('@/js/utils/documentViewerPdf.js')
+      clearPdfPageCache()
       pdfDoc = await openPdfDocument(await result.blob.arrayBuffer())
       if (token !== loadToken) {
         return
@@ -415,19 +432,19 @@ async function loadDocument() {
     return
   }
   if (kind.value === DOCUMENT_PREVIEW_KIND.PDF && pdfDoc) {
-    await renderCurrentPdfPage()
+    await renderPdfStrip()
   } else if (kind.value === DOCUMENT_PREVIEW_KIND.DOCX && docxBuffer) {
     await renderDocx(docxBuffer)
   }
 }
 
 watch(() => [props.src, props.filename], loadDocument, { immediate: true })
-watch([page, zoom, orientation, pagesPerView], () => {
+watch([zoom, orientation, pagesPerView], () => {
   if (loading.value) {
     return
   }
   if (kind.value === DOCUMENT_PREVIEW_KIND.PDF && pdfDoc) {
-    renderCurrentPdfPage()
+    renderPdfStrip()
   } else if (kind.value === DOCUMENT_PREVIEW_KIND.DOCX) {
     applyDocxFit()
   }
@@ -443,8 +460,8 @@ onUnmounted(() => {
   renderToken += 1
   pdfDoc = null
   window.clearTimeout(resizeTimer)
-  import('@/js/utils/documentViewerPdf.js').then(({ cancelPdfPageRenders }) => {
-    cancelPdfPageRenders()
+  import('@/js/utils/documentViewerPdf.js').then(({ clearPdfPageCache }) => {
+    clearPdfPageCache()
   }).catch(() => {})
   unbindStage(stageRef.value)
   if (stageObserver) {
@@ -554,11 +571,13 @@ onUnmounted(() => {
 
 .document-viewer__pdf {
   display: grid;
-  justify-content: center;
+  justify-content: safe center;
   justify-items: center;
   align-content: start;
   gap: 0.75rem;
-  max-width: 100%;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
   padding: 0.75rem;
 }
 
@@ -570,10 +589,13 @@ onUnmounted(() => {
   grid-template-columns: repeat(2, max-content);
 }
 
+.document-viewer__pdf--cols-4 {
+  grid-template-columns: repeat(4, max-content);
+}
+
 .document-viewer__canvas {
   display: block;
-  // Размер задаёт fit страницы. max-width + фиксированная высота сжимают лист
-  // по горизонтали и превращают текст в кашу.
+  // Размер — собственный размер листа и зум. max-width сжал бы страницу и размазал текст.
   max-width: none;
   background: #fff;
   box-shadow: var(--ui-shadow-sm, none);

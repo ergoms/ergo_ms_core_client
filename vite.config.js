@@ -660,6 +660,71 @@ if (federationShared) {
   plugins.push(esmExternalRequirePlugin({ external: [...FEDERATION_SHARED_EXTERNALS] }))
 }
 
+const PDFJS_WASM_PUBLIC_PATH = '/pdfjs/wasm'
+const PDFJS_WASM_SRC = path.join(npmModules, 'pdfjs-dist', 'wasm')
+
+function pdfjsWasmFile(urlPath) {
+  if (!urlPath.startsWith(`${PDFJS_WASM_PUBLIC_PATH}/`)) {
+    return null
+  }
+  let name = ''
+  try {
+    name = decodeURIComponent(urlPath.slice(PDFJS_WASM_PUBLIC_PATH.length + 1))
+  } catch {
+    return null
+  }
+  if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) {
+    return null
+  }
+  const root = path.resolve(PDFJS_WASM_SRC)
+  const file = path.resolve(root, name)
+  if (path.dirname(file) !== root || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+    return null
+  }
+  return file
+}
+
+function copyPdfjsWasm(outDir) {
+  if (!fs.existsSync(PDFJS_WASM_SRC)) {
+    throw new Error(`Нет каталога wasm pdf.js: ${PDFJS_WASM_SRC}`)
+  }
+  const dest = path.join(outDir, 'pdfjs', 'wasm')
+  fs.mkdirSync(dest, { recursive: true })
+  for (const name of fs.readdirSync(PDFJS_WASM_SRC)) {
+    const src = path.join(PDFJS_WASM_SRC, name)
+    if (fs.statSync(src).isFile()) {
+      fs.copyFileSync(src, path.join(dest, name))
+    }
+  }
+}
+
+function pdfjsWasmPlugin() {
+  return {
+    name: 'pdfjs-wasm',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const file = pdfjsWasmFile(req.url?.split('?')[0] || '')
+        if (!file) {
+          next()
+          return
+        }
+        const types = {
+          '.wasm': 'application/wasm',
+          '.js': 'text/javascript; charset=utf-8',
+        }
+        res.setHeader('Content-Type', types[path.extname(file)] || 'application/octet-stream')
+        res.setHeader('Cache-Control', 'no-store')
+        fs.createReadStream(file).pipe(res)
+      })
+    },
+    closeBundle() {
+      copyPdfjsWasm(path.resolve(__dirname, 'dist'))
+    },
+  }
+}
+
+plugins.push(pdfjsWasmPlugin())
+
 export default defineConfig(() => ({
   build: {
     // Vite 8 baseline widely available ≈ последние 2–3 года браузеров (без IE)
