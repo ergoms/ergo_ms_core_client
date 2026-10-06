@@ -104,10 +104,7 @@ export function formatChatListTime(date) {
     try {
         const locale = getCurrentBcp47()
         if (startOfTarget.getTime() === startOfToday.getTime()) {
-            return new Intl.DateTimeFormat(locale, {
-                hour: '2-digit',
-                minute: '2-digit',
-            }).format(targetDate)
+            return formatTime(targetDate)
         }
         if (startOfTarget.getTime() === startOfYesterday.getTime()) {
             return tGlobal('time.chatList.yesterday')
@@ -122,6 +119,25 @@ export function formatChatListTime(date) {
             day: '2-digit',
             month: '2-digit',
             year: '2-digit',
+        }).format(targetDate)
+    } catch {
+        return ''
+    }
+}
+
+/**
+ * Форматирует время: «09:15».
+ * @param {string|Date} date - Дата в ISO формате или объект Date
+ * @returns {string} Время или пустая строка при ошибке
+ */
+export function formatTime(date) {
+    const targetDate = parseDate(date)
+    if (!targetDate) return ''
+
+    try {
+        return new Intl.DateTimeFormat(getCurrentBcp47(), {
+            hour: '2-digit',
+            minute: '2-digit',
         }).format(targetDate)
     } catch {
         return ''
@@ -164,10 +180,8 @@ export function formatDateTimeLong(date) {
     try {
         const datePart = formatDate(date)
         if (!datePart) return '—'
-        const time = new Intl.DateTimeFormat(getCurrentBcp47(), {
-            hour: '2-digit',
-            minute: '2-digit',
-        }).format(targetDate)
+        const time = formatTime(targetDate)
+        if (!time) return '—'
         return `${datePart}, ${time}`
     } catch {
         return '—'
@@ -190,10 +204,8 @@ export function formatDateWeekdayTime(date) {
         const weekday = new Intl.DateTimeFormat(locale, { weekday: 'long' })
             .format(targetDate)
             .toLowerCase()
-        const time = new Intl.DateTimeFormat(locale, {
-            hour: '2-digit',
-            minute: '2-digit',
-        }).format(targetDate)
+        const time = formatTime(targetDate)
+        if (!time) return ''
         return `${datePart} (${weekday}), ${time}`
     } catch {
         return ''
