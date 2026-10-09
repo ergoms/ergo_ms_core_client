@@ -6,6 +6,8 @@ export default {
   tabBar: {
     ariaLabel: 'Вкладки',
     more: 'Ещё',
+    previous: 'Прокрутить влево',
+    next: 'Прокрутить вправо',
   },
   searchInput: {
     placeholder: 'Поиск...',

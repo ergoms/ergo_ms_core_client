@@ -6,6 +6,8 @@ export default {
   tabBar: {
     ariaLabel: 'Tabs',
     more: 'More',
+    previous: 'Scroll left',
+    next: 'Scroll right',
   },
   searchInput: {
     placeholder: 'Search...',

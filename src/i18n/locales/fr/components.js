@@ -6,6 +6,8 @@ export default {
   tabBar: {
     ariaLabel: 'Onglets',
     more: 'Plus',
+    previous: 'Défiler vers la gauche',
+    next: 'Défiler vers la droite',
   },
   searchInput: {
     placeholder: 'Rechercher...',

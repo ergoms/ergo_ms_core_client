@@ -13,7 +13,10 @@
         </span>
       </div>
 
-      <div class="tab-bar__list">
+      <button v-if="showScrollControls" type="button" class="tab-bar__shift tab-bar__shift--left" :disabled="!canShiftBackward" :aria-label="previousLabel" @click="scrollTabs('left')">
+        <ChevronLeft :size="16" aria-hidden="true" />
+      </button>
+      <div ref="listRef" class="tab-bar__list" @scroll="updateShiftState">
         <button v-for="tab in displayedTabs" :key="tab.id" type="button" role="tab" class="tab-bar__tab" :class="{ 'tab-bar__tab--active': modelValue === tab.id }" :aria-selected="modelValue === tab.id" @click="selectTab(tab.id)">
           <component :is="tab.icon" v-if="tab.icon" :size="16" class="tab-bar__icon" />
           <span class="tab-bar__text">{{ tab.name }}</span>
@@ -38,6 +41,9 @@
           </template>
         </DropDown>
       </div>
+      <button v-if="showScrollControls" type="button" class="tab-bar__shift tab-bar__shift--right" :disabled="!canShiftForward" :aria-label="nextLabel" @click="scrollTabs('right')">
+        <ChevronRight :size="16" aria-hidden="true" />
+      </button>
     </nav>
     <div v-if="$slots.default" class="tab-bar__content">
       <slot />
@@ -47,7 +53,8 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ChevronDown } from '@lucide/vue'
+import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/vue'
+import { getReducedMotionActive } from '@/composables/useUiModes.js'
 import DropDown from '@/components/DropDown.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 
@@ -75,9 +82,12 @@ const emit = defineEmits(['update:modelValue'])
 
 const { t } = useAppI18n()
 const navRef = ref(null)
+const listRef = ref(null)
 const measureRef = ref(null)
 const moreDropdownRef = ref(null)
 const fitCount = ref(0)
+const canShiftBackward = ref(false)
+const canShiftForward = ref(false)
 let resizeObserver = null
 
 const normalizedTabs = computed(() => (
@@ -90,6 +100,11 @@ const isScrollOverflow = computed(() => props.overflow !== 'menu')
 const isMenuOverflow = computed(() => props.overflow === 'menu')
 
 const moreLabel = computed(() => t('components.tabBar.more'))
+const previousLabel = computed(() => t('components.tabBar.previous'))
+const nextLabel = computed(() => t('components.tabBar.next'))
+const showScrollControls = computed(() => (
+  isScrollOverflow.value && (canShiftBackward.value || canShiftForward.value)
+))
 const resolvedAriaLabel = computed(() => (
   props.ariaLabel || t('components.tabBar.ariaLabel')
 ))
@@ -160,9 +175,41 @@ function measureOverflow() {
   fitCount.value = count
 }
 
+function updateShiftState() {
+  const el = listRef.value
+  if (!el || !isScrollOverflow.value) {
+    canShiftBackward.value = false
+    canShiftForward.value = false
+    return
+  }
+  const maxScrollLeft = el.scrollWidth - el.clientWidth
+  const overflowing = el.scrollWidth > el.clientWidth + 1
+  if (!overflowing) {
+    canShiftBackward.value = false
+    canShiftForward.value = false
+    return
+  }
+  canShiftBackward.value = el.scrollLeft > 0
+  canShiftForward.value = el.scrollLeft < maxScrollLeft - 1
+}
+
+function scrollTabs(direction) {
+  const el = listRef.value
+  if (!el) return
+  const amount = Math.max(200, Math.floor(el.clientWidth * 0.75))
+  const delta = direction === 'left' ? -amount : amount
+  el.scrollBy({
+    left: delta,
+    behavior: getReducedMotionActive() ? 'auto' : 'smooth',
+  })
+}
+
 function scheduleMeasure() {
   nextTick(() => {
-    requestAnimationFrame(measureOverflow)
+    requestAnimationFrame(() => {
+      measureOverflow()
+      updateShiftState()
+    })
   })
 }
 
@@ -186,20 +233,34 @@ watch(
   scheduleMeasure,
   { flush: 'post' },
 )
+
+watch(showScrollControls, (visible) => {
+  if (visible) scheduleMeasure()
+})
 </script>
 
 <style scoped lang="scss">
 @use '@/scss/ui/mixins' as *;
 
 .tab-bar {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
 
 .tab-bar__nav {
   position: relative;
   min-width: 0;
+  max-width: 100%;
   border-bottom: 1.5px solid var(--ui-border, var(--color-border));
   border-radius: 6px 6px 0 0;
+
+  &--scroll {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+  }
 }
 
 .tab-bar__list,
@@ -214,6 +275,7 @@ watch(
 }
 
 .tab-bar__nav--scroll .tab-bar__list {
+  grid-column: 2;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -221,6 +283,43 @@ watch(
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+.tab-bar__shift {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--ui-border, var(--color-border));
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--ui-text, var(--color-primary-text));
+  cursor: pointer;
+
+  @include ui-reduced-motion;
+  @include ui-a11y-focus;
+
+  &:hover:not(:disabled) {
+    color: var(--ui-accent, var(--color-accent));
+    border-color: var(--ui-accent, var(--color-accent));
+    background: color-mix(in srgb, var(--ui-accent, var(--color-accent)) 8%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &--left {
+    grid-column: 1;
+  }
+
+  &--right {
+    grid-column: 3;
   }
 }
 

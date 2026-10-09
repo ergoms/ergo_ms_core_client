@@ -227,6 +227,15 @@ const filteredUsers = computed(() => {
   })
 })
 
+function wholePositiveInt(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim())
+    if (Number.isSafeInteger(parsed) && parsed > 0) return parsed
+  }
+  return null
+}
+
 function normalizeModalUser(raw) {
   const fullName = raw.full_name || raw.fullName || raw.name || ''
   const fallbackName = fullName || raw.username || ''
@@ -235,9 +244,12 @@ function normalizeModalUser(raw) {
   const lastName = (raw.last_name || raw.lastName || '').trim()
   const publicId = raw.public_id ?? raw.publicId ?? raw.user_ref ?? null
   const identity = publicId ?? raw.id ?? null
+  // Ключ выбора — public_id. Целый id нужен формам, которые ещё шлют pk в теле запроса.
+  const userId = wholePositiveInt(raw.user_id ?? raw.userId) ?? wholePositiveInt(raw.id)
 
   return {
     id: identity,
+    user_id: userId,
     public_id: publicId,
     user_ref: raw.user_ref ?? publicId,
     username: raw.username || '',
