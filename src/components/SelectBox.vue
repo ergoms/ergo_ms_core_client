@@ -33,23 +33,21 @@
             <teleport to="body">
                 <div
                     v-if="isOpen"
-                    class="select-box-menu-anchor"
+                    ref="menuAnchorEl"
+                    class="dropdown-menu show select-box-menu-teleport"
                     :class="{
-                        'select-box-menu-anchor--up': menuOpensUpward,
-                        'select-box-menu-anchor--side': placement === 'right',
+                        'select-box-menu-teleport--up': menuOpensUpward,
+                        'select-box-menu-teleport--side': placement === 'right',
+                        'select-box-menu--uniform-font': uniformDropdownListFont,
+                        [dropdownMenuClass]: Boolean(dropdownMenuClass),
                     }"
                     v-csp-style="menuAnchorStyle"
+                    role="listbox"
+                    :id="listboxId"
+                    :aria-labelledby="triggerId"
                     @mouseenter="onHoverZoneEnter"
                     @mouseleave="onHoverZoneLeave"
                 >
-                    <div
-                        ref="menuEl"
-                        :id="listboxId"
-                        role="listbox"
-                        :aria-labelledby="triggerId"
-                        :class="dropdownTeleportMenuClass"
-                        v-csp-style="fixedMenuStyle"
-                    >
                         <input
                             v-if="searchable"
                             ref="searchInputEl"
@@ -136,7 +134,6 @@
                                 </div>
                             </div>
                         </template>
-                    </div>
                 </div>
             </teleport>
         </div>
@@ -147,6 +144,8 @@
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick, useId } from 'vue'
 import LucideIcon from '@/components/LucideIcon.vue'
 import { OVERLAY_MENU_Z_INDEX } from '@/js/utils/overlayZIndex.js'
+import { getTopZIndex } from '@/js/utils/modalStack.js'
+import { computeSelectBoxMenuLayout, resolveSelectBoxMenuZIndex } from '@/js/utils/selectBoxMenuPosition.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 
 defineOptions({ inheritAttrs: false })
@@ -267,14 +266,6 @@ function getDropdownItemStyle(opt) {
     }
 }
 
-const dropdownTeleportMenuClass = computed(() => {
-    const parts = ['dropdown-menu', 'show', 'fixed-menu']
-    if (props.placement === 'right') parts.push('fixed-menu--side')
-    if (props.dropdownMenuClass) parts.push(props.dropdownMenuClass)
-    if (props.uniformDropdownListFont) parts.push('select-box-menu--uniform-font')
-    return parts
-})
-
 function toKey(value) {
     if (value === null || value === undefined) return NULL_VALUE
     const type = typeof value
@@ -347,8 +338,16 @@ const hasListContent = computed(() => {
 
 const isOpen = ref(false)
 const menuOpensUpward = ref(false)
-const menuAnchorStyle = ref({})
-const fixedMenuStyle = ref({})
+/** Как у DropDown: fixed + CSS-переменные, без обёртки height:0. */
+const menuAnchorStyle = ref({
+    '--select-box-menu-top': '-9999px',
+    '--select-box-menu-left': '0px',
+    '--select-box-menu-width': 'auto',
+    '--select-box-menu-max-height': 'min(80vh, calc(100vh - 16px))',
+    '--select-box-menu-z': String(OVERLAY_MENU_Z_INDEX),
+})
+const menuAnchorEl = ref(null)
+let suppressOutsideClick = false
 
 function resolveContextFontSize(trigger, root) {
     if (!trigger) return '1rem'
@@ -387,7 +386,22 @@ function buildMenuCssVars(trigger, root) {
     }
 }
 
+function resolveMenuZIndex() {
+    return resolveSelectBoxMenuZIndex(OVERLAY_MENU_Z_INDEX, getTopZIndex())
+}
+
+function hiddenMenuStyle() {
+    return {
+        '--select-box-menu-top': '-9999px',
+        '--select-box-menu-left': '0px',
+        '--select-box-menu-width': 'auto',
+        '--select-box-menu-max-height': 'min(80vh, calc(100vh - 16px))',
+        '--select-box-menu-z': String(resolveMenuZIndex()),
+    }
+}
+
 function updateMenuPosition() {
+    if (!isOpen.value) return
     const root = rootEl.value
     if (!root) return
     const trigger = root.querySelector('.select-trigger')
@@ -395,62 +409,31 @@ function updateMenuPosition() {
     const triggerRect = trigger.getBoundingClientRect()
     const anchorEl = props.dropdownAnchorRef?.value
     const anchorRect = anchorEl ? anchorEl.getBoundingClientRect() : null
-    const rect = (anchorRect && anchorRect.width > 0) ? anchorRect : triggerRect
-    const viewportPadding = 8
-    const minDropdownWidth = 120
+    const vv = window.visualViewport
+    const layout = computeSelectBoxMenuLayout({
+        placement: props.placement,
+        placementAlign: props.placementAlign,
+        placementGap: props.placementGap,
+        dropdownMinWidth: props.dropdownMinWidth,
+        triggerRect,
+        anchorRect,
+        measuredHeight: menuAnchorEl.value?.getBoundingClientRect().height || 0,
+        vw: vv?.width ?? window.innerWidth,
+        vh: vv?.height ?? window.innerHeight,
+        offsetTop: vv?.offsetTop ?? 0,
+        offsetLeft: vv?.offsetLeft ?? 0,
+    })
 
-    let top
-    let left
-    let width
-    let openUp = false
-
-    if (props.placement === 'right') {
-        const sideGap = props.placementGap
-        const maxWidth = Math.max(0, window.innerWidth - viewportPadding * 2)
-        width = Math.min(Math.max(minDropdownWidth, props.dropdownMinWidth || 0), maxWidth)
-        const fitsRight = triggerRect.right + sideGap + width <= window.innerWidth - viewportPadding
-        left = fitsRight
-            ? triggerRect.right + sideGap
-            : Math.max(viewportPadding, triggerRect.left - sideGap - width)
-
-        if (props.placementAlign === 'center') {
-            const menuHeight = menuEl.value?.getBoundingClientRect().height || triggerRect.height
-            const centerTop = triggerRect.top + triggerRect.height / 2 - menuHeight / 2
-            top = Math.min(
-                Math.max(viewportPadding, centerTop),
-                Math.max(viewportPadding, window.innerHeight - viewportPadding - menuHeight)
-            )
-        } else {
-            top = Math.min(
-                triggerRect.top,
-                window.innerHeight - viewportPadding
-            )
-        }
-    } else {
-        const maxWidth = Math.max(0, window.innerWidth - viewportPadding * 2)
-        const triggerWidth = Math.max(0, rect.width)
-        const minW = Math.max(minDropdownWidth, props.dropdownMinWidth || 0, triggerWidth)
-        width = Math.min(minW, maxWidth)
-        left = Math.abs(width - triggerWidth) < 0.5
-            ? rect.left
-            : Math.min(rect.left, window.innerWidth - viewportPadding - width)
-        const menuHeight = menuEl.value?.getBoundingClientRect().height || 0
-        const spaceBelow = window.innerHeight - viewportPadding - triggerRect.bottom
-        const spaceAbove = triggerRect.top - viewportPadding
-        openUp = menuHeight > 0
-            && spaceBelow < menuHeight
-            && spaceAbove > spaceBelow
-        top = openUp ? triggerRect.top : triggerRect.bottom
-    }
-
-    menuOpensUpward.value = openUp
+    menuOpensUpward.value = layout.openUp
+    const fontVars = buildMenuCssVars(trigger, root)
     menuAnchorStyle.value = {
-        top: `${top}px`,
-        left: `${left}px`,
-        width: `${width}px`,
-        zIndex: OVERLAY_MENU_Z_INDEX,
+        ...fontVars,
+        '--select-box-menu-top': `${layout.top}px`,
+        '--select-box-menu-left': `${layout.left}px`,
+        '--select-box-menu-width': `${layout.width}px`,
+        '--select-box-menu-max-height': `${Math.max(0, layout.maxHeight)}px`,
+        '--select-box-menu-z': String(resolveMenuZIndex()),
     }
-    fixedMenuStyle.value = buildMenuCssVars(trigger, root)
 }
 const searchInputEl = ref(null)
 let hoverCloseTimer = null
@@ -485,18 +468,20 @@ function onHoverZoneLeave() {
 function open() {
     if (props.disabled || isOpen.value) return
     isOpen.value = true
-    updateMenuPosition()
-    if (props.dropdownAnchorRef) {
-        nextTick(() => {
+    // Иначе document click того же жеста закрывает меню (Яндекс.Браузер, searchable).
+    suppressOutsideClick = true
+    nextTick(() => {
+        updateMenuPosition()
+        requestAnimationFrame(() => {
             updateMenuPosition()
-            requestAnimationFrame(() => updateMenuPosition())
+            if (props.searchable) {
+                searchInputEl.value?.focus({ preventScroll: true })
+            }
+            requestAnimationFrame(() => {
+                suppressOutsideClick = false
+            })
         })
-    } else {
-        requestAnimationFrame(() => updateMenuPosition())
-    }
-    if (props.searchable) {
-        nextTick(() => searchInputEl.value?.focus())
-    }
+    })
     if (props.virtualized) {
         startIndex.value = 0
         endIndex.value = 0
@@ -517,8 +502,10 @@ function toggle() {
 
 function close() {
     clearHoverCloseTimer()
+    suppressOutsideClick = false
     isOpen.value = false
     searchQuery.value = ''
+    menuAnchorStyle.value = hiddenMenuStyle()
 }
 
 function coerce(val) {
@@ -619,14 +606,14 @@ function isSelected(val) {
 }
 
 function handleClickOutside(e) {
+    if (suppressOutsideClick || !isOpen.value) return
     const root = rootEl.value
     if (!root) return
-    if (menuEl.value?.contains(e.target)) return
+    if (menuAnchorEl.value?.contains(e.target)) return
     if (!root.contains(e.target)) close()
 }
 
 const rootEl = ref(null)
-const menuEl = ref(null)
 const listContainerRef = ref(null)
 const listScrollTop = ref(0)
 const listViewportHeight = ref(260)
@@ -690,18 +677,23 @@ function onListScroll() {
 }
 
 const onResize = () => {
+    if (!isOpen.value) return
     updateMenuPosition()
 }
 onMounted(() => {
     document.addEventListener('click', handleClickOutside, true)
     window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', updateMenuPosition, true)
+    window.addEventListener('scroll', onResize, true)
+    window.visualViewport?.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('scroll', onResize)
 })
 onBeforeUnmount(() => {
     clearHoverCloseTimer()
     document.removeEventListener('click', handleClickOutside, true)
     window.removeEventListener('resize', onResize)
-    window.removeEventListener('scroll', updateMenuPosition, true)
+    window.removeEventListener('scroll', onResize, true)
+    window.visualViewport?.removeEventListener('resize', onResize)
+    window.visualViewport?.removeEventListener('scroll', onResize)
 })
 
 watch([() => (props.virtualized ? effectiveOptionsForVirtual.value.length : filteredOptions.value.length), isOpen], () => {

@@ -3,15 +3,17 @@ import { resolveApiClientBaseUrl } from '@/js/api/baseUrl.js'
 import tokenService from '@/core/cms/js/tokenService'
 import { cmsEndpoints } from '@/core/cms/js/endpoints.js'
 
+import { getPresenceConnectionContext } from '@/js/realtime/presenceConnectionContext.js'
+
 const ep = cmsEndpoints.cms.presence
 
 export const presenceApi = {
   heartbeat() {
-    return apiClient.post(ep.heartbeat, {})
+    return apiClient.post(ep.heartbeat, { connection_id: getPresenceConnectionContext()?.connectionId })
   },
 
-  offline() {
-    return apiClient.post(ep.offline, {})
+  offline(context = getPresenceConnectionContext()) {
+    return apiClient.post(ep.offline, { connection_id: context?.connectionId })
   },
 
   adminSnapshot() {
@@ -19,8 +21,8 @@ export const presenceApi = {
   },
 }
 
-export function sendPresenceOfflineBeacon() {
-  const token = tokenService.getAccess()
+export function sendPresenceOfflineBeacon(context = getPresenceConnectionContext(), reason = 'disconnect') {
+  const token = context?.token || tokenService.getAccess()
   if (!token) {
     return
   }
@@ -33,7 +35,7 @@ export function sendPresenceOfflineBeacon() {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: '{}',
+      body: JSON.stringify({ connection_id: context?.connectionId, reason }),
       keepalive: true,
     })
   } catch {

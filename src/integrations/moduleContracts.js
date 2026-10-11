@@ -20,3 +20,5 @@ export const MENU_REMOVED_ROUTE_NAMES_GROUP = 'menu.removed_route_names'
 export const MENU_ITEM_TRAILING_GROUP = 'menu.item_trailing'
 export const SESSION_SCOPED_MODULE_CONTEXT_GROUP = 'session_scope.module_context'
 export const SESSION_SCOPE_ENTRY_ROUTES_GROUP = 'session.scope_entry_routes'
+/** Тихий вход в session-scope по непрозрачной ссылке (клик по уведомлению). */
+export const SESSION_ENTER_SCOPE = 'session.enter_scope'

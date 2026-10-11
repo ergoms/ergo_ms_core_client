@@ -28,6 +28,9 @@ export default {
     clear: 'Очистить',
   },
   pagination: {
+    jumpLabel: 'Страница',
+    jumpAction: 'Перейти',
+    jumpError: 'Введите целое число от 1 до {total}',
     page: 'Страница {page} из {total}',
     pageOnly: 'Страница {page}',
     pagePosition: 'страница {page} из {total}',

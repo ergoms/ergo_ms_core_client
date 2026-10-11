@@ -77,8 +77,19 @@ $dark-accent: #f14336;
   --scrollbar-rail-hover: color-mix(in srgb, var(--color-primary-text) 12%, transparent);
 }
 
+// До выбора темы допустимы обе схемы. После выбора схема совпадает с темой приложения:
+// иначе браузер с тёмной ОС или принудительной тёмной темой сайта рисует встроенные
+// элементы (полосы прокрутки, поля, списки) тёмными поверх светлой страницы.
 html {
   color-scheme: light dark;
+}
+
+html[data-bs-theme='light'] {
+  color-scheme: light;
+}
+
+html[data-bs-theme='dark'] {
+  color-scheme: dark;
 }
 
 body {

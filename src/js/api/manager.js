@@ -86,6 +86,28 @@ function splitAxiosStyleGetArgs(params) {
   return { query: params, requestConfig: {} }
 }
 
+async function messageFromDownloadError(error) {
+  const data = error?.response?.data
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text())
+      const detail = parsed.detail || parsed.message
+      if (typeof detail === 'string' && detail.trim()) {
+        return detail
+      }
+    } catch {
+      /* ответ не JSON */
+    }
+  }
+  if (typeof data?.detail === 'string' && data.detail.trim()) {
+    return data.detail
+  }
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message
+  }
+  return error?.message || 'Ошибка при скачивании файла'
+}
+
 /**
  * Класс для работы с API
  */
@@ -329,10 +351,11 @@ class ApiClient {
   /**
    * Скачивание файлов (бинарные данные)
    */
-  async downloadFile(endpoint, params = {}, method = 'GET', needToken = true) {
+  async downloadFile(endpoint, params = {}, method = 'GET', needToken = true, requestConfig = {}) {
     try {
-      const config = { 
-        responseType: 'blob'
+      const config = {
+        responseType: 'blob',
+        ...requestConfig,
       }
       if (needToken) {
         config._needToken = true
@@ -340,6 +363,13 @@ class ApiClient {
 
       if (needToken) {
         this._addAuthToken(config)
+      }
+
+      if (params instanceof FormData) {
+        config.headers = {
+          ...config.headers,
+          'Content-Type': undefined,
+        }
       }
 
       let response
@@ -368,7 +398,7 @@ class ApiClient {
     } catch (error) {
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Ошибка при скачивании файла',
+        message: await messageFromDownloadError(error),
         data: null,
         status: error.response?.status
       }

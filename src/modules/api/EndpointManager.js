@@ -67,18 +67,29 @@ export class EndpointManager extends ModuleLoader {
       const parts = key.split('.')
       let current = result
 
-      parts.forEach((part, index) => {
-        if (index === parts.length - 1) {
-          // Последняя часть - присваиваем значение
-          current[part] = value
-        } else {
-          // Промежуточная часть - создаем объект если нет
-          if (!current[part]) {
-            current[part] = {}
+      for (let index = 0; index < parts.length; index += 1) {
+        const part = parts[index]
+        const isLeaf = index === parts.length - 1
+
+        if (isLeaf) {
+          if (current[part] && typeof current[part] === 'object') {
+            logWarn(`Эндпоинт «${key}» пересекается с вложенной группой и пропущен`)
+            return
           }
-          current = current[part]
+          current[part] = value
+          return
         }
-      })
+
+        const next = current[part]
+        if (next != null && typeof next !== 'object') {
+          logWarn(`Эндпоинт «${key}» пересекается со строкой «${parts.slice(0, index + 1).join('.')}» и пропущен`)
+          return
+        }
+        if (!next) {
+          current[part] = {}
+        }
+        current = current[part]
+      }
     })
 
     return result

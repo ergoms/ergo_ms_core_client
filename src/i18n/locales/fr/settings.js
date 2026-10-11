@@ -191,6 +191,7 @@ export default {
     channelInAppHint: 'Notifications dans la cloche et le fil système',
     receiveAbout: 'Recevoir des notifications concernant',
     channelMuted: 'Canal désactivé par l’interrupteur global',
+    channelLocked: 'Cette notification est toujours envoyée',
     unavailable: 'Indisponible pour ce type de notification',
     tableAria: 'Paramètres de notification',
   },

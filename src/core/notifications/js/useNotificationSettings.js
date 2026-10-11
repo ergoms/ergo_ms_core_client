@@ -144,6 +144,13 @@ export function useNotificationSettings() {
   }
 
   function toggleEvent(sourceModule, eventKey, channel, enabled) {
+    const section = sections.value.find((item) => item.module === sourceModule)
+    const locked = (section?.categories || []).some((category) => (
+      (category.events || []).some((event) => (
+        event.event_key === eventKey && event.channels?.[channel]?.locked
+      ))
+    ))
+    if (locked) return
     applyLocalEventState(sourceModule, eventKey, channel, enabled)
     pendingItems.set(`${sourceModule}|${eventKey}|${channel}`, {
       source_module: sourceModule,

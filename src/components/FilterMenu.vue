@@ -554,14 +554,15 @@ onBeforeUnmount(() => {
   position: fixed;
   margin-top: 0;
   padding: 0;
-  background-color: var(--color-primary-background);
   border: 1px solid var(--color-border);
   border-radius: 0.375rem;
   box-shadow: var(--ui-shadow-lg);
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   font-size: var(--select-box-font-size, 0.875rem);
   line-height: 1.5;
+  background-color: var(--color-primary-background, var(--bs-body-bg));
+  color: var(--color-primary-text, var(--bs-body-color));
 }
 
 .filter-menu__panel .filter-menu__row {
@@ -619,7 +620,10 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 260px;
+  flex: none;
+  height: auto;
+  max-height: min(260px, 70vh);
+  min-height: auto;
   overflow-y: auto;
   overflow-x: hidden;
 }

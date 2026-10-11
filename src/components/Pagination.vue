@@ -94,6 +94,13 @@
           </button>
         </li>
       </ul>
+      <PaginationJump
+        v-if="!usesServerFlags || totalItems !== null"
+        :current-page="modelValue"
+        :total-pages="totalPages"
+        :disabled="disabled"
+        @change="goToPage"
+      />
     </nav>
   </div>
 </template>
@@ -101,6 +108,7 @@
 <script setup>
 import { computed } from 'vue'
 import LucideIcon from '@/components/LucideIcon.vue'
+import PaginationJump from '@/components/PaginationJump.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 
 const { t } = useAppI18n()
@@ -334,7 +342,12 @@ function goToPage(page) {
   }
 
   &__nav {
-    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    min-width: 0;
   }
 
   &__list {

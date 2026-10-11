@@ -7,14 +7,16 @@ import { presenceApi, sendPresenceOfflineBeacon } from '@/js/realtime/presenceAp
 import { PRESENCE_DELTA_EVENT, PRESENCE_USER_TOPIC, PRESENCE_WATCH_EVENT, buildClientEnvelope, } from '@/js/realtime/envelope.js'
 import { fetchBatch, listWatchedPublicIds, mergeSnapshot, } from '@/core/cms/adp/js/presence/presenceStore.js'
 
+import { getPresenceConnectionContext } from '@/js/realtime/presenceConnectionContext.js'
+
 const WS_PATH = '/ws/presence/'
 
-function attachPageHideOfflineBeacon() {
+function attachPageHideOfflineBeacon(context) {
   function onPageHide(event) {
     if (event.persisted) {
       return
     }
-    sendPresenceOfflineBeacon()
+    sendPresenceOfflineBeacon(context)
   }
 
   window.addEventListener('pagehide', onPageHide)
@@ -29,11 +31,12 @@ function applyPresenceDelta(event, data, handlers) {
 }
 
 function connectPresenceWebSocket(handlers) {
+  const context = getPresenceConnectionContext()
   const connection = createWebSocketTransport(WS_PATH, {
     ...handlers,
     onMessage: (event, data) => applyPresenceDelta(event, data, handlers),
   })
-  const removePageHide = attachPageHideOfflineBeacon()
+  const removePageHide = attachPageHideOfflineBeacon(context)
   const originalClose = connection.close.bind(connection)
 
   return {
@@ -59,8 +62,9 @@ function connectPresenceWebSocket(handlers) {
 }
 
 function connectPresenceHttpPolling(handlers) {
+  const context = getPresenceConnectionContext()
   let intentionalClose = false
-  const removePageHide = attachPageHideOfflineBeacon()
+  const removePageHide = attachPageHideOfflineBeacon(context)
 
   const handler = {
     onAuthenticated: () => handlers.onAuthenticated?.(),
@@ -79,18 +83,18 @@ function connectPresenceHttpPolling(handlers) {
       return
     }
     intentionalClose = true
-    sendPresenceOfflineBeacon()
+    sendPresenceOfflineBeacon(context)
   }
 
   window.addEventListener('pagehide', onPageHide)
 
   return {
-    close() {
+    close({ preserveConnection = false } = {}) {
       intentionalClose = true
       removePageHide()
       window.removeEventListener('pagehide', onPageHide)
       unregister()
-      void presenceApi.offline().catch(() => {})
+      if (!preserveConnection) void presenceApi.offline(context).catch(() => {})
       handlers.onClose?.({}, true)
     },
     getSocket() {
@@ -111,7 +115,8 @@ function connectPresenceHttpPolling(handlers) {
 }
 
 function connectPresenceSse(handlers) {
-  const removePageHide = attachPageHideOfflineBeacon()
+  const context = getPresenceConnectionContext()
+  const removePageHide = attachPageHideOfflineBeacon(context)
   let unregisterPoll = null
   let authenticated = false
   const subscribed = new Set()
@@ -142,7 +147,7 @@ function connectPresenceSse(handlers) {
   })
 
   return {
-    close() {
+    close({ preserveConnection = false } = {}) {
       offDelta?.()
       for (const topic of subscribed) {
         void client.unsubscribe(topic)
@@ -151,7 +156,7 @@ function connectPresenceSse(handlers) {
       removePageHide()
       unregisterPoll?.()
       authenticated = false
-      void presenceApi.offline().catch(() => {})
+      if (!preserveConnection) void presenceApi.offline(context).catch(() => {})
       handlers.onClose?.({}, true)
     },
     getSocket() {

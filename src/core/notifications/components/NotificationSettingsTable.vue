@@ -20,7 +20,18 @@ function isChannelMuted(channelKey) {
   return props.globalSwitches?.[channelKey] === false
 }
 
+function isChannelLocked(event, channelKey) {
+  return Boolean(event.channels?.[channelKey]?.locked)
+}
+
+function channelTitle(event, channelKey) {
+  if (isChannelLocked(event, channelKey)) return t('settings.notifications.channelLocked')
+  if (isChannelMuted(channelKey)) return t('settings.notifications.channelMuted')
+  return ''
+}
+
 function onToggle(event, channelKey, checked) {
+  if (isChannelLocked(event, channelKey)) return
   emit('toggle', {
     sourceModule: props.sourceModule,
     eventKey: event.event_key,
@@ -58,9 +69,10 @@ function onToggle(event, channelKey, checked) {
               v-if="event.channels?.[channel.key]?.available"
               type="checkbox"
               class="form-check-input notif-table__checkbox"
-              :checked="event.channels[channel.key].enabled"
-              :disabled="isChannelMuted(channel.key)"
-              :title="isChannelMuted(channel.key) ? t('settings.notifications.channelMuted') : ''"
+              :class="{ 'notif-table__checkbox--locked': isChannelLocked(event, channel.key) }"
+              :checked="isChannelLocked(event, channel.key) || event.channels[channel.key].enabled"
+              :disabled="isChannelMuted(channel.key) || isChannelLocked(event, channel.key)"
+              :title="channelTitle(event, channel.key)"
               :aria-label="`${event.label} — ${channel.label}`"
               @change="onToggle(event, channel.key, $event.target.checked)"
             />
@@ -125,6 +137,10 @@ function onToggle(event, channelKey, checked) {
   &:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+  }
+
+  &--locked:disabled {
+    opacity: 1;
   }
 }
 

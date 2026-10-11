@@ -8,6 +8,8 @@ import HoverTooltip from '@/components/HoverTooltip.vue'
 import LucideIcon from '@/components/LucideIcon.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { formatDateTime, formatDateWeekdayTime } from '@/js/utils/timeUtils.js'
+import { useToast } from '@/js/utils/toast.js'
+import { enterNotificationScope } from '@/core/notifications/js/enterNotificationScope.js'
 import { expandedNotificationId } from '@/core/notifications/js/expandedNotification.js'
 
 const { t } = useAppI18n()
@@ -82,6 +84,10 @@ const hasTarget = computed(() => {
 
 const sourceLabel = computed(() => {
   const item = props.notification
+  const scope = String(item?.scope_label || '').trim()
+  if (scope) return scope
+  const event = String(item?.event_label || item?.category_label || '').trim()
+  if (event) return event
   if (!item?.source_module) return ''
   return item.module_label || item.source_module
 })
@@ -142,14 +148,25 @@ async function onBodyClick() {
 }
 
 async function navigate() {
-  emit('activate', props.notification)
-  emit('mark-read', props.notification.id)
-
   const item = props.notification
+  const entered = await enterNotificationScope(item.scope_ref)
+  if (!entered.success) {
+    try {
+      useToast().error(entered.error || 'Не удалось открыть компанию из уведомления')
+    } catch {
+      /* тост — best effort */
+    }
+    return
+  }
+
+  emit('activate', item)
+  emit('mark-read', item.id)
+
   if (item.route?.name) {
     await router.push({
       name: item.route.name,
       params: item.route.params || {},
+      query: item.route.query || {},
     })
     return
   }
@@ -387,12 +404,12 @@ function onHideSidebar() {
 }
 
 .notif-item__title {
-  display: block;
+  display: -webkit-box;
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   font-size: 0.875rem;
   line-height: 1.35;
   color: var(--color-primary-text);
@@ -476,10 +493,8 @@ function onHideSidebar() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.7rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 550;
   color: var(--color-secondary-text);
 }
 

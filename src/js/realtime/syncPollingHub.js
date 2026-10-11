@@ -5,6 +5,7 @@ import { activePollIntervalMs, pollIntervalMs } from '@/js/realtime/config.js'
 import { buildClientEnvelope } from '@/js/realtime/envelope.js'
 import { registerPollJob } from '@/js/realtime/pollCoordinator.js'
 import { realtimeApi } from '@/js/realtime/realtimeApi.js'
+import { getPresenceConnectionContext } from '@/js/realtime/presenceConnectionContext.js'
 
 const channels = {
   notifications: { count: 0, lastRun: 0 },
@@ -90,6 +91,7 @@ async function runSync() {
   }
   if (wantPresence) {
     params.presence_heartbeat = true
+    params.presence_connection_id = getPresenceConnectionContext()?.connectionId
     channels.presence.lastRun = Date.now()
   }
   if (wantAdmin) {

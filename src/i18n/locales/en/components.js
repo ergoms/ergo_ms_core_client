@@ -28,6 +28,9 @@ export default {
     clear: 'Clear',
   },
   pagination: {
+    jumpLabel: 'Page',
+    jumpAction: 'Go',
+    jumpError: 'Enter a whole number from 1 to {total}',
     page: 'Page {page} of {total}',
     pageOnly: 'Page {page}',
     pagePosition: 'page {page} of {total}',

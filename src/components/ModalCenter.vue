@@ -104,23 +104,23 @@ const standaloneRootStyle = computed(() => {
   return style
 })
 
-const handleClose = () => {
-  emit('close')
-  emit('closemodal')
+const handleClose = (reason = 'button') => {
+  emit('close', reason)
+  emit('closemodal', reason)
 }
 
 const onBackdropClick = () => {
   if (!props.standalone || !props.closeOnBackdrop || !isTopModal(props.modalId)) {
     return
   }
-  handleClose()
+  handleClose('backdrop')
 }
 
 const onKeydown = (e) => {
   if (e.key !== 'Escape') return
   if (!props.standalone || !props.closeOnEsc || !props.visible) return
   if (!isTopModal(props.modalId)) return
-  handleClose()
+  handleClose('escape')
 }
 
 const registerInStack = () => {
@@ -204,7 +204,10 @@ onBeforeUnmount(() => {
             <h1 class="modal-title fs-5 d-flex align-items-center gap-2" :id="titleId">
               <slot name="title">{{ title }}</slot>
             </h1>
-            <button v-if="showCloseButton" type="button" class="btn-close" :aria-label="t('components.modal.close')" @click.stop="handleClose"></button>
+            <div class="modal-header__end">
+              <slot name="header-actions" />
+              <button v-if="showCloseButton" type="button" class="btn-close" :aria-label="t('components.modal.close')" @click.stop="handleClose"></button>
+            </div>
           </div>
           <button
             v-else-if="!showTitle && showCloseButton"
@@ -315,6 +318,18 @@ onBeforeUnmount(() => {
 
   .btn-close:focus {
     box-shadow: none;
+  }
+}
+
+.modal-header__end {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+
+  .btn-close {
+    margin-left: 0;
   }
 }
 

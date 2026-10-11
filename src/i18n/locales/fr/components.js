@@ -28,6 +28,9 @@ export default {
     clear: 'Effacer',
   },
   pagination: {
+    jumpLabel: 'Page',
+    jumpAction: 'Aller',
+    jumpError: 'Saisissez un nombre entier de 1 à {total}',
     page: 'Page {page} sur {total}',
     pageOnly: 'Page {page}',
     pagePosition: 'page {page} sur {total}',

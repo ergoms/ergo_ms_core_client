@@ -1,55 +1,49 @@
-/* Teleport: якорь = ширина триггера, меню на 100% якоря.
-   left/right: -1px — компенсация визуального «утопа» границы относительно .btn. */
-.select-box-menu-anchor {
-    position: fixed;
-    height: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    overflow: visible;
-    pointer-events: none;
-    box-sizing: border-box;
-
-    > .dropdown-menu.fixed-menu {
-        pointer-events: auto;
-        position: absolute !important;
-        top: 0;
-        bottom: auto;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        box-shadow: 0 10px 18px -10px rgba(34, 48, 62, 0.22) !important;
-    }
-
-    &:not(.select-box-menu-anchor--side) > .dropdown-menu.fixed-menu {
-        left: -1px !important;
-        right: -1px !important;
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: none !important;
-    }
-
-    &--side > .dropdown-menu.fixed-menu {
-        left: 0 !important;
-        right: 0 !important;
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
-        box-shadow: 0 0.25rem 0.75rem 0 rgba(34, 48, 62, 0.14) !important;
-    }
-
-    &--up > .dropdown-menu.fixed-menu {
-        top: auto;
-        bottom: 0;
-        border-top-left-radius: .375rem;
-        border-top-right-radius: .375rem;
-        border-bottom-left-radius: 0;
-        border-bottom-right-radius: 0;
-        border-bottom-color: transparent;
-    }
+/* Teleport-меню SelectBox — тот же приём, что у DropDown.vue:
+   один fixed-элемент, top/left через CSS-переменные (v-csp-style). */
+.select-box-menu-teleport.dropdown-menu {
+    position: fixed !important;
+    top: var(--select-box-menu-top, -9999px) !important;
+    left: var(--select-box-menu-left, 0px) !important;
+    width: var(--select-box-menu-width, auto) !important;
+    min-width: var(--select-box-menu-width, auto) !important;
+    max-width: none !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: var(--select-box-menu-z, 1070) !important;
+    max-height: min(80vh, calc(100vh - 16px)) !important;
+    max-height: var(--select-box-menu-max-height, min(80vh, calc(100vh - 16px))) !important;
+    display: flex !important;
+    flex-direction: column;
+    margin: 0 !important;
+    margin-top: 0 !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    box-shadow: 0 10px 18px -10px rgba(34, 48, 62, 0.22) !important;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    overflow: hidden !important;
+    background-color: var(--color-primary-background, var(--bs-body-bg)) !important;
+    color: var(--color-primary-text, var(--bs-body-color)) !important;
 }
 
-.fixed-menu {
-    /* Кастомный #option собирается в родителе — scoped-стили SelectBox на слот не действуют. */
+.select-box-menu-teleport--side.dropdown-menu {
+    border-top-left-radius: .375rem;
+    border-top-right-radius: .375rem;
+    box-shadow: 0 0.25rem 0.75rem 0 rgba(34, 48, 62, 0.14) !important;
+}
+
+.select-box-menu-teleport--up.dropdown-menu {
+    border-top-left-radius: .375rem;
+    border-top-right-radius: .375rem;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+}
+
+.select-box-menu-teleport {
     .select-box-option-row {
         display: flex;
         align-items: center;
@@ -100,5 +94,20 @@
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         word-break: break-word;
+    }
+
+    .dropdown-menu-list,
+    .dropdown-menu-list-virtual-wrap {
+        flex: none;
+        height: auto;
+        min-height: auto;
+        max-height: min(80vh, calc(100vh - 16px));
+        max-height: min(80dvh, calc(100dvh - 16px));
+        max-height: var(--select-box-menu-max-height, min(80vh, calc(100vh - 16px)));
+        overflow-x: hidden;
+    }
+
+    .dropdown-menu-list {
+        overflow-y: auto;
     }
 }

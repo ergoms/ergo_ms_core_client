@@ -42,15 +42,18 @@ function scheduleFlush() {
     return
   }
   flushQueued = true
+  // microtask, не rAF: координаты overlay (SelectBox и т.п.) должны
+  // попасть в stylesheet до paint, иначе fixed без top/left рисуется
+  // в «статической» позиции внизу документа на один кадр или дольше.
   const run = () => {
     flushQueued = false
     flush()
   }
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(run)
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(run)
     return
   }
-  run()
+  Promise.resolve().then(run)
 }
 
 function ensureId(el) {
@@ -78,6 +81,12 @@ export function applyCspStyle(el, value) {
     return
   }
   rules.set(id, decls)
+  // Координаты overlay нужны до paint — flush сразу, без ожидания кадра.
+  if (/\b(top|left|right|bottom|--[a-z0-9-]*(?:top|left|right|bottom))\s*:/i.test(decls)) {
+    flushQueued = false
+    flush()
+    return
+  }
   scheduleFlush()
 }
 

@@ -4,7 +4,14 @@ import { connectPresenceTransport } from '@/js/realtime/presenceTransport.js'
 import { PRESENCE_PING_EVENT, PRESENCE_USER_TOPIC, buildClientEnvelope, } from '@/js/realtime/envelope.js'
 import { clearLiveSelfPresence, listWatchedPublicIds, setLiveSelfPresence, setPresenceWatchListener, } from './presenceStore.js'
 
+import { getPresenceConnectionContext } from '@/js/realtime/presenceConnectionContext.js'
+import { sendPresenceOfflineBeacon } from '@/js/realtime/presenceApi.js'
+import { logError } from '@/js/utils/logError'
+
 const PING_INTERVAL_MS = 45000
+let activeContext = null
+let activeToken = null
+let connectionGeneration = 0
 
 let wsConnection = null
 let pingTimer = null
@@ -18,20 +25,25 @@ function clearPingTimer() {
   }
 }
 
+async function sendPing() {
+  try {
+    if (tokenService.shouldRefresh()) await tokenService.tryRefresh()
+    const socket = wsConnection?.getSocket()
+    const context = getPresenceConnectionContext()
+    if (socket?.readyState === WebSocket.OPEN && context) {
+      socket.send(JSON.stringify(buildClientEnvelope(PRESENCE_PING_EVENT, {
+        connection_id: context.connectionId,
+      }, PRESENCE_USER_TOPIC)))
+    }
+  } catch (error) {
+    logError('Presence heartbeat failed:', error)
+  }
+}
+
 function startPingTimer() {
   clearPingTimer()
-  pingTimer = setInterval(() => {
-    const socket = wsConnection?.getSocket()
-    if (socket?.readyState === WebSocket.OPEN) {
-      try {
-        socket.send(JSON.stringify(
-          buildClientEnvelope(PRESENCE_PING_EVENT, {}, PRESENCE_USER_TOPIC),
-        ))
-      } catch {
-        // ignore
-      }
-    }
-  }, PING_INTERVAL_MS)
+  void sendPing()
+  pingTimer = setInterval(() => { void sendPing() }, PING_INTERVAL_MS)
 }
 
 function syncLiveSelfPresence() {
@@ -58,10 +70,14 @@ function openSocket() {
   }
 
   intentionalClose = false
+  activeContext = getPresenceConnectionContext()
+  activeToken = activeContext?.token || null
   wsConnection?.close()
 
+  const generation = ++connectionGeneration
   wsConnection = connectPresenceTransport({
     onAuthenticated: () => {
+      if (generation !== connectionGeneration) return
       startPingTimer()
       // Индикатор в меню читает presenceStore; без этой записи он остаётся
       // offline после batch, который успел ответить до heartbeat/WS.
@@ -69,6 +85,7 @@ function openSocket() {
       syncWatchedPeers()
     },
     onClose: (_event, wasIntentional) => {
+      if (generation !== connectionGeneration) return
       clearPingTimer()
       if (wasIntentional || intentionalClose) {
         clearLiveSelfPresence()
@@ -76,6 +93,7 @@ function openSocket() {
       }
     },
     onError: () => {
+      if (generation !== connectionGeneration) return
       clearPingTimer()
     },
   })
@@ -108,14 +126,27 @@ export function ensurePresenceConnected() {
   return connectionPromise
 }
 
-export function disconnectPresenceConnection() {
+export function disconnectPresenceConnection({ preserveConnection = false } = {}) {
+  connectionGeneration += 1
   intentionalClose = true
   clearPingTimer()
   clearLiveSelfPresence()
-  wsConnection?.close()
+  wsConnection?.close({ preserveConnection })
   wsConnection = null
 }
 
 export function resetPresenceConnection() {
   disconnectPresenceConnection()
+}
+
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('access-token-changed', () => {
+    const next = getPresenceConnectionContext()
+    if (activeContext?.signature === next?.signature && activeToken === next?.token) return
+    if (activeContext && activeContext.signature !== next?.signature) sendPresenceOfflineBeacon(activeContext, 'scope_changed')
+    disconnectPresenceConnection({ preserveConnection: activeContext?.signature === next?.signature })
+    activeContext = next
+    if (next) void ensurePresenceConnected()
+  })
 }

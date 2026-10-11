@@ -191,6 +191,7 @@ export default {
     channelInAppHint: 'Notifications in the bell and system feed',
     receiveAbout: 'Receive notifications about',
     channelMuted: 'Channel disabled by the global switch',
+    channelLocked: 'This notification is always delivered',
     unavailable: 'Unavailable for this notification type',
     tableAria: 'Notification settings',
   },
