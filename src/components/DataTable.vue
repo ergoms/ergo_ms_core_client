@@ -15,13 +15,7 @@
           <div class="data-table-group-title">
             <slot name="group-header" :group="group">{{ group.label }}</slot>
           </div>
-          <article
-            v-for="(item, idx) in group.items"
-            :key="groupedItemKey(group, item, idx)"
-            class="data-table-card"
-            :class="[getRowClass(item, groupedItemIndex(groupIndex, idx)), { 'data-table-card--clickable': rowIsClickable(item, groupedItemIndex(groupIndex, idx)) }]"
-            @click="handleRowClick(item, groupedItemIndex(groupIndex, idx))"
-          >
+          <article v-for="(item, idx) in group.items" :key="groupedItemKey(group, item, idx)" class="data-table-card" :class="[getRowClass(item, groupedItemIndex(groupIndex, idx)), { 'data-table-card--clickable': rowIsClickable(item, groupedItemIndex(groupIndex, idx)) }]" @click="handleRowClick(item, groupedItemIndex(groupIndex, idx))">
             <div v-if="showNumberColumn" class="data-table-card__meta text-muted">
               № {{ groupedItemNumber(groupIndex, idx) }}
             </div>
@@ -58,6 +52,7 @@
             {{ getCellValue(item, actionsColumn) }}
           </slot>
         </div>
+        <DataTableRowDetails v-if="hasRowDetails" :open="rowExpanded(item, idx)" @click.stop><slot name="row-details" :item="item" :index="idx" /></DataTableRowDetails>
       </article>
     </div>
 
@@ -88,12 +83,7 @@
                   <slot name="group-header" :group="group">{{ group.label }}</slot>
                 </td>
               </tr>
-              <tr
-                v-for="(item, idx) in group.items"
-                :key="groupedItemKey(group, item, idx)"
-                :class="getRowClass(item, groupedItemIndex(groupIndex, idx))"
-                @click="handleRowClick(item, groupedItemIndex(groupIndex, idx))"
-              >
+              <tr v-for="(item, idx) in group.items" :key="groupedItemKey(group, item, idx)" :class="getRowClass(item, groupedItemIndex(groupIndex, idx))" @click="handleRowClick(item, groupedItemIndex(groupIndex, idx))">
                 <td v-if="showNumberColumn" class="text-muted">{{ groupedItemNumber(groupIndex, idx) }}</td>
                 <td v-for="column in visibleColumns" :key="column.key" :class="column.cellClass" :style="column.cellStyle">
                   <slot :name="`cell-${column.key}`" :item="item" :index="groupedItemIndex(groupIndex, idx)" :column="column">
@@ -103,14 +93,21 @@
               </tr>
             </template>
           </template>
-          <tr v-for="(item, idx) in displayItems" v-else :key="getItemKey(item, idx)" :class="getRowClass(item, idx)" @click="handleRowClick(item, idx)">
-            <td v-if="showNumberColumn" class="text-muted">{{ displayNumberOffset + idx + 1 }}</td>
-            <td v-for="column in visibleColumns" :key="column.key" :class="column.cellClass" :style="column.cellStyle">
-              <slot :name="`cell-${column.key}`" :item="item" :index="idx" :column="column">
-                {{ getCellValue(item, column) }}
-              </slot>
-            </td>
-          </tr>
+          <template v-for="(item, idx) in displayItems" v-else :key="getItemKey(item, idx)">
+            <tr :class="getRowClass(item, idx)" @click="handleRowClick(item, idx)">
+              <td v-if="showNumberColumn" class="text-muted">{{ displayNumberOffset + idx + 1 }}</td>
+              <td v-for="column in visibleColumns" :key="column.key" :class="column.cellClass" :style="column.cellStyle">
+                <slot :name="`cell-${column.key}`" :item="item" :index="idx" :column="column">
+                  {{ getCellValue(item, column) }}
+                </slot>
+              </td>
+            </tr>
+            <tr v-if="hasRowDetails" class="data-table-details-row" :class="{ 'data-table-details-row--open': rowExpanded(item, idx) }">
+              <td :colspan="totalColumnCount" class="data-table-details-cell">
+                <DataTableRowDetails :open="rowExpanded(item, idx)"><slot name="row-details" :item="item" :index="idx" /></DataTableRowDetails>
+              </td>
+            </tr>
+          </template>
         </tbody>
         <tfoot v-if="hasFooter && hasRows">
           <slot name="footer" :colspan="totalColumnCount" />
@@ -125,6 +122,7 @@
 <script setup>
 import { computed, useSlots } from 'vue'
 import { ArrowUpDown, ChevronDown, ChevronUp } from '@lucide/vue'
+import DataTableRowDetails from '@/components/DataTableRowDetails.vue'
 import Pagination from '@/components/Pagination.vue'
 import { BREAKPOINTS, useBreakpoint } from '@/composables/useBreakpoint.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
@@ -165,6 +163,11 @@ const props = defineProps({
   getItemKey: {
     type: Function,
     default: (item, index) => item?.id ?? index
+  },
+  /** С слотом #row-details: раскрыта ли подстрока под строкой (item, index) → boolean. Группы не поддерживаются. */
+  isRowExpanded: {
+    type: Function,
+    default: null,
   },
   // Пагинация
   enablePagination: {
@@ -226,6 +229,11 @@ const props = defineProps({
 
 const slots = useSlots()
 const hasFooter = computed(() => Boolean(slots.footer))
+const hasRowDetails = computed(() => Boolean(slots['row-details']))
+
+function rowExpanded(item, idx) {
+  return typeof props.isRowExpanded === 'function' && Boolean(props.isRowExpanded(item, idx))
+}
 
 const emit = defineEmits(['rowClick', 'update:currentPage', 'pageChange', 'update:sortKey', 'update:sortDirection'])
 
@@ -558,6 +566,16 @@ const displayNumberOffset = computed(() => {
   &:hover {
     background-color: var(--color-hover-background);
   }
+}
+
+.data-table .data-table-details-row > .data-table-details-cell {
+  padding: 0;
+  border-bottom-width: 0;
+  --bs-table-bg-state: transparent;
+}
+
+.data-table .data-table-details-row--open > .data-table-details-cell {
+  border-bottom-width: 1px;
 }
 
 .data-table-empty-cell {
