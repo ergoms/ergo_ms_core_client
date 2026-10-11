@@ -165,7 +165,7 @@ export default {
     inboxRetention: 'Notification retention period',
     activityInBell: 'Activity in the bell',
     activityInBellLabel: 'Display period in the bell',
-    activityInBellHint: 'How many days to keep read notifications in the bell. Unread ones are always shown.',
+    activityInBellHint: 'How many days to keep read notifications in the bell. Unread ones are always shown. Older read ones stay for another hour after you read them.',
     autoArchiveLabel: 'Auto-archive read items',
     autoArchiveHint: 'After how many days read notifications move from Active to Archive.',
     activityDays: {

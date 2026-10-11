@@ -165,7 +165,7 @@ export default {
     inboxRetention: 'Durée de conservation des notifications',
     activityInBell: 'Activité dans la cloche',
     activityInBellLabel: 'Période d’affichage dans la cloche',
-    activityInBellHint: 'Combien de jours conserver les notifications lues dans la cloche. Les non lues s’affichent toujours.',
+    activityInBellHint: 'Combien de jours conserver les notifications lues dans la cloche. Les non lues s’affichent toujours. Les anciennes lues restent encore une heure après la lecture.',
     autoArchiveLabel: 'Archivage automatique des lues',
     autoArchiveHint: 'Après combien de jours les notifications lues passent de Actives à Archive.',
     activityDays: {
