@@ -92,6 +92,11 @@ export default {
     pagesTwo: 'Two pages',
     pagesFour: 'Four pages',
     pagesFitWidth: 'Fit to window width',
+    searchPlaceholder: 'Search in file',
+    searchEmpty: 'No matches',
+    searchCount: '{current} of {total}',
+    searchPrev: 'Previous match',
+    searchNext: 'Next match',
   },
   sideDrawer: {
     close: 'Close',

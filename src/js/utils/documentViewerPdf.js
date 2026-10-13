@@ -197,6 +197,71 @@ export function clearPdfPageCache() {
   inflightBitmaps.clear()
 }
 
+const textLayerTasks = new WeakMap()
+const textGeneration = new WeakMap()
+
+function bumpTextGeneration(container) {
+  const next = (textGeneration.get(container) || 0) + 1
+  textGeneration.set(container, next)
+  return next
+}
+
+/**
+ * Прозрачный текст поверх холста: тот же масштаб и поворот, что у листа.
+ * Ширину задаёт CSS-переменная pdf.js от масштаба листа, не от пикселей холста,
+ * иначе поиск браузера попадает мимо глифов.
+ */
+export async function renderPdfTextLayer(page, container, scale, options = {}) {
+  if (!container) {
+    return null
+  }
+  const previous = textLayerTasks.get(container)
+  if (previous) {
+    try {
+      previous.cancel()
+    } catch {
+      // слой уже завершён или отменён
+    }
+  }
+  const generation = bumpTextGeneration(container)
+  container.replaceChildren()
+  const pdfjs = await loadPdfjs()
+  if (textGeneration.get(container) !== generation) {
+    return null
+  }
+  if (options.stillCurrent && !options.stillCurrent()) {
+    return null
+  }
+  const rotation = normalizedRotation(options.rotation)
+  const viewport = pdfPageViewport(page, { scale, rotation })
+  const textContent = await page.getTextContent()
+  if (textGeneration.get(container) !== generation || (options.stillCurrent && !options.stillCurrent())) {
+    return null
+  }
+  container.style.setProperty('--scale-factor', String(viewport.scale))
+  const layer = new pdfjs.TextLayer({
+    textContentSource: textContent,
+    container,
+    viewport,
+  })
+  textLayerTasks.set(container, layer)
+  try {
+    await layer.render()
+  } catch (error) {
+    if (isCancelledRender(error)) {
+      return null
+    }
+    throw error
+  }
+  if (textGeneration.get(container) !== generation) {
+    return null
+  }
+  await new Promise((resolve) => {
+    requestAnimationFrame(resolve)
+  })
+  return layer
+}
+
 export async function renderPdfPage(page, canvas, scale, options = {}) {
   const ratio = pixelRatio()
   const rotation = normalizedRotation(options.rotation)

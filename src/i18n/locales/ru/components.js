@@ -92,6 +92,11 @@ export default {
     pagesTwo: 'Две страницы',
     pagesFour: 'Четыре страницы',
     pagesFitWidth: 'По ширине окна',
+    searchPlaceholder: 'Поиск по файлу',
+    searchEmpty: 'Нет совпадений',
+    searchCount: '{current} из {total}',
+    searchPrev: 'Предыдущее совпадение',
+    searchNext: 'Следующее совпадение',
   },
   sideDrawer: {
     close: 'Закрыть',

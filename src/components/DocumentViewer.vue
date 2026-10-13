@@ -58,6 +58,7 @@
           </button>
         </HoverTooltip>
       </div>
+      <DocumentViewerFind v-if="kind === 'pdf' || kind === 'docx'" v-model="searchQuery" class="document-viewer__find" :current="searchIndex" :total="searchTotal" @next="stepSearch(1)" @prev="stepSearch(-1)"/>
       <HoverTooltip v-if="src" :text="t('components.documentViewer.download')" wrap>
         <button type="button" class="document-viewer__icon-btn" :aria-label="t('components.documentViewer.download')" @click="downloadFile">
           <Download :size="18" aria-hidden="true" />
@@ -76,7 +77,10 @@
         </button>
       </div>
       <div v-else-if="kind === 'pdf'" class="document-viewer__pdf" :class="`document-viewer__pdf--cols-${pdfCols}`">
-        <canvas v-for="n in pageCount" :key="n" class="document-viewer__canvas" v-csp-style="canvasStyles[n - 1] || emptyStyle" :aria-label="pdfPageAria(n)"/>
+        <div v-for="n in pageCount" :key="n" class="document-viewer__sheet" v-csp-style="canvasStyles[n - 1] || emptyStyle">
+          <canvas class="document-viewer__canvas" :aria-label="pdfPageAria(n)"/>
+          <div class="document-viewer__text"/>
+        </div>
       </div>
       <div v-else-if="kind === 'docx'" ref="docxHost" class="document-viewer__docx" v-csp-style="docxFitStyle"/>
       <div v-else class="document-viewer__state">
@@ -93,18 +97,21 @@
 <script setup>
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Columns2, Download, LayoutGrid, RectangleHorizontal, RectangleVertical, Square, ZoomIn, ZoomOut, } from '@lucide/vue'
+import DocumentViewerFind from '@/components/DocumentViewerFind.vue'
 import DocumentViewerPageHud from '@/components/DocumentViewerPageHud.vue'
+import '@/components/documentViewerText.css'
 import HoverTooltip from '@/components/HoverTooltip.vue'
 import SpinnerLoading from '@/components/SpinnerLoading.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { logError } from '@/js/utils/logError.js'
 import { downloadMedia } from '@/js/utils/mediaDownload.js'
 import { DOCUMENT_PREVIEW_KIND, detectDocumentPreviewKind, fetchMediaBlob, } from '@/js/utils/mediaPreview.js'
-import { PDF_CSS_UNITS, layoutColumns, pageRotation, waitForBox, } from '@/js/utils/documentViewerLayout.js'
+import { PDF_CSS_UNITS, fitPdfPageZoom, layoutColumns, pageRotation, pdfPageCssSize, waitForBox, } from '@/js/utils/documentViewerLayout.js'
 import { countDocxPages, DOCX_PAGES_FIT_WIDTH, fitDocxToStage, renderDocxDocument } from '@/js/utils/documentViewerDocx.js'
-import { bindViewerStage, handlePdfStageWheel, unbindViewerStage, } from '@/js/utils/documentViewerStage.js'
+import { applyDocumentSearch, clearDocumentSearch, scrollSearchRange, } from '@/js/utils/documentViewerSearch.js'
+import { bindViewerStage, handlePdfStageWheel, pdfPageFromScroll, revealPdfPage, unbindViewerStage, viewerCanvases, } from '@/js/utils/documentViewerStage.js'
 
-const ZOOM_MIN = 0.5
+const ZOOM_MIN = 0.15
 const ZOOM_MAX = 3
 const ZOOM_STEP = 0.25
 const STAGE_PAD = 24
@@ -142,12 +149,19 @@ const emptyStyle = {}
 const docxFitStyle = ref({})
 const docxHost = ref(null)
 const stageRef = ref(null)
+const searchQuery = ref('')
+const searchIndex = ref(0)
+const searchTotal = ref(0)
 let pdfDoc = null
 let docxNative = null
 let loadToken = 0
 let renderToken = 0
 let resizeTimer = 0
+let searchTimer = 0
 let stageObserver = null
+let pdfPageCss = null
+let zoomTouched = false
+let applyingFit = false
 
 const zoomLabel = computed(() => `${Math.round(zoom.value * 100)}%`)
 const pdfCols = computed(() => layoutColumns(pagesPerView.value))
@@ -178,55 +192,44 @@ function pdfPageAria(n) {
   return t('components.documentViewer.pdfPage', { current: n, total: pageCount.value })
 }
 
-function stageCanvases() {
-  const stage = stageRef.value
-  if (!stage) {
-    return []
-  }
-  return [...stage.querySelectorAll('canvas.document-viewer__canvas')]
-}
-
-function canvasScrollTop(canvas, stage) {
-  return stage.scrollTop + canvas.getBoundingClientRect().top - stage.getBoundingClientRect().top
-}
-
 function goPage(next) {
-  const cols = pdfCols.value
-  const raw = Math.min(Math.max(1, Number(next) || 1), pageCount.value)
-  const rowStart = Math.floor((raw - 1) / cols) * cols + 1
-  page.value = rowStart
-  const canvas = stageCanvases()[rowStart - 1]
-  const stage = stageRef.value
-  if (!canvas || !stage) {
-    return
-  }
-  stage.scrollTo({ top: Math.max(0, canvasScrollTop(canvas, stage) - 12), behavior: 'smooth' })
+  page.value = revealPdfPage(stageRef.value, next, pagesPerView.value, pageCount.value)
 }
 
 function onStageScroll() {
   if (kind.value !== DOCUMENT_PREVIEW_KIND.PDF || !stageRef.value) {
     return
   }
-  const stage = stageRef.value
-  const cols = pdfCols.value
-  const canvases = stageCanvases()
-  let current = 1
-  for (let index = 0; index < pageCount.value; index += 1) {
-    const canvas = canvases[index]
-    if (!canvas) {
-      continue
-    }
-    if (canvasScrollTop(canvas, stage) <= stage.scrollTop + 24) {
-      current = index + 1
-    }
-  }
-  const rowStart = Math.floor((current - 1) / cols) * cols + 1
+  const rowStart = pdfPageFromScroll(stageRef.value, pageCount.value, pagesPerView.value)
   if (rowStart !== page.value) {
     page.value = rowStart
   }
 }
 
+function syncPdfFit(sizes, quiet = false) {
+  if (sizes) {
+    pdfPageCss = pdfPageCssSize(sizes, PDF_CSS_UNITS)
+  }
+  if (zoomTouched) {
+    return
+  }
+  const next = fitPdfPageZoom(stageRef.value, pdfPageCss, pdfCols.value, { min: ZOOM_MIN, max: 1 })
+  if (next == null || Math.abs(next - zoom.value) < 0.01) {
+    return
+  }
+  if (quiet) {
+    applyingFit = true
+    zoom.value = next
+    nextTick(() => {
+      applyingFit = false
+    })
+    return
+  }
+  zoom.value = next
+}
+
 function changeZoom(delta) {
+  zoomTouched = true
   const stepped = Math.round((zoom.value + delta) / ZOOM_STEP) * ZOOM_STEP
   zoom.value = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(stepped * 100) / 100))
 }
@@ -270,13 +273,17 @@ function applyDocxFit() {
 function scheduleStageFit() {
   window.clearTimeout(resizeTimer)
   resizeTimer = window.setTimeout(() => {
-    if (loading.value || kind.value === DOCUMENT_PREVIEW_KIND.PDF) {
+    if (loading.value) {
+      return
+    }
+    if (kind.value === DOCUMENT_PREVIEW_KIND.PDF) {
+      syncPdfFit()
       return
     }
     if (kind.value === DOCUMENT_PREVIEW_KIND.DOCX) {
       applyDocxFit()
     }
-  }, 80)
+  }, 200)
 }
 
 stageObserver = new ResizeObserver(scheduleStageFit)
@@ -298,6 +305,8 @@ function resetView() {
   page.value = 1
   pageCount.value = 1
   zoom.value = 1
+  zoomTouched = false
+  pdfPageCss = null
   errorText.value = ''
   kind.value = detectDocumentPreviewKind(props.filename)
   canvasStyles.value = []
@@ -306,6 +315,21 @@ function resetView() {
   if (docxHost.value) {
     docxHost.value.replaceChildren()
   }
+  clearDocumentSearch()
+}
+
+function runSearch(index) {
+  const pdf = kind.value === DOCUMENT_PREVIEW_KIND.PDF
+  const docx = kind.value === DOCUMENT_PREVIEW_KIND.DOCX
+  const host = pdf ? stageRef.value?.querySelector('.document-viewer__pdf') : docxHost.value
+  const applied = applyDocumentSearch(pdf || docx ? host : null, searchQuery.value, index)
+  searchTotal.value = applied.total
+  searchIndex.value = applied.index
+  if (applied.ranges[applied.index]) scrollSearchRange(applied.ranges[applied.index])
+}
+
+function stepSearch(delta) {
+  if (searchTotal.value) runSearch(searchIndex.value + delta)
 }
 
 async function renderPdfStrip() {
@@ -313,7 +337,7 @@ async function renderPdfStrip() {
     return
   }
   const token = ++renderToken
-  const { cancelPdfPageRenders, pdfPageViewport, renderPdfPage } = await import(
+  const { cancelPdfPageRenders, pdfPageViewport, renderPdfPage, renderPdfTextLayer } = await import(
     '@/js/utils/documentViewerPdf.js'
   )
   const total = pageCount.value
@@ -335,12 +359,13 @@ async function renderPdfStrip() {
     sizes.push({ width: view.width, height: view.height })
   }
   await nextTick()
-  if (!stageCanvases()[0]) {
+  if (!viewerCanvases(stageRef.value)[0]) {
     await nextTick()
   }
   if (!stageRef.value || token !== renderToken) {
     return
   }
+  syncPdfFit(sizes, true)
   const scale = zoom.value * PDF_CSS_UNITS
   cancelPdfPageRenders({ scale, rotation })
   canvasStyles.value = sizes.map((size) => ({
@@ -354,7 +379,7 @@ async function renderPdfStrip() {
   if (scrollRatio > 0) {
     stageRef.value.scrollTop = scrollRatio * stageRef.value.scrollHeight
   }
-  const canvases = stageCanvases()
+  const canvases = viewerCanvases(stageRef.value)
   for (let index = 0; index < loaded.length; index += 1) {
     const canvas = canvases[index]
     if (!canvas || token !== renderToken) {
@@ -368,10 +393,23 @@ async function renderPdfStrip() {
       if (!size || token !== renderToken) {
         return
       }
+      const textHost = canvas.parentElement?.querySelector('.document-viewer__text')
+      if (textHost) {
+        await renderPdfTextLayer(loaded[index], textHost, scale, {
+          rotation,
+          stillCurrent: () => token === renderToken,
+        })
+      }
     } catch (error) {
       logError('DocumentViewer.renderPdfStrip', error)
+      if (token === renderToken) {
+        runSearch(searchIndex.value)
+      }
       return
     }
+  }
+  if (token === renderToken) {
+    runSearch(searchIndex.value)
   }
 }
 
@@ -388,6 +426,7 @@ async function renderDocx(buffer) {
     return
   }
   applyDocxFit()
+  runSearch(searchIndex.value)
 }
 
 async function loadDocument() {
@@ -439,8 +478,12 @@ async function loadDocument() {
 }
 
 watch(() => [props.src, props.filename], loadDocument, { immediate: true })
+watch(searchQuery, () => {
+  window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(() => runSearch(0), 200)
+})
 watch([zoom, orientation, pagesPerView], () => {
-  if (loading.value) {
+  if (loading.value || applyingFit) {
     return
   }
   if (kind.value === DOCUMENT_PREVIEW_KIND.PDF && pdfDoc) {
@@ -458,8 +501,10 @@ watch(stageRef, (el, prev) => {
 onUnmounted(() => {
   loadToken += 1
   renderToken += 1
+  clearDocumentSearch()
   pdfDoc = null
   window.clearTimeout(resizeTimer)
+  window.clearTimeout(searchTimer)
   import('@/js/utils/documentViewerPdf.js').then(({ clearPdfPageCache }) => {
     clearPdfPageCache()
   }).catch(() => {})
@@ -510,6 +555,13 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.document-viewer__find {
+  flex: 1 1 14rem;
+  min-width: min(100%, 14rem);
+  max-width: 24rem;
+  margin-left: auto;
 }
 
 .document-viewer__page,
@@ -593,12 +645,19 @@ onUnmounted(() => {
   grid-template-columns: repeat(4, max-content);
 }
 
+.document-viewer__sheet {
+  position: relative;
+  background: #fff;
+  box-shadow: var(--ui-shadow-sm, none);
+}
+
 .document-viewer__canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   // Размер — собственный размер листа и зум. max-width сжал бы страницу и размазал текст.
   max-width: none;
   background: #fff;
-  box-shadow: var(--ui-shadow-sm, none);
 }
 
 .document-viewer__docx {

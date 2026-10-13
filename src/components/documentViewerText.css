@@ -1,0 +1,54 @@
+.document-viewer__text {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-size-adjust: none;
+  transform-origin: 0 0;
+  z-index: 1;
+  --user-unit: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size, 1));
+  --min-font-size-inv: calc(1 / var(--min-font-size, 1));
+}
+
+.document-viewer__text[data-main-rotation='90'] {
+  transform: rotate(90deg) translateY(-100%);
+}
+
+.document-viewer__text[data-main-rotation='180'] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+
+.document-viewer__text[data-main-rotation='270'] {
+  transform: rotate(270deg) translateX(-100%);
+}
+
+.document-viewer__text :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.document-viewer__text > :not(.markedContent),
+.document-viewer__text .markedContent span:not(.markedContent) {
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height, 0));
+  transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1)) scale(var(--min-font-size-inv));
+}
+
+.document-viewer__text .markedContent {
+  display: contents;
+}
+
+::highlight(document-viewer-hits) {
+  background-color: rgb(255 214 0 / 0.45);
+}
+
+::highlight(document-viewer-hit-current) {
+  background-color: rgb(255 140 0 / 0.7);
+}
