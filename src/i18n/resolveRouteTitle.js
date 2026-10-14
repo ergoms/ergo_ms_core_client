@@ -2,6 +2,8 @@ import { tGlobal, teGlobal } from '@/i18n/index.js'
 
 /**
  * Резолвит заголовок маршрута: meta.titleKey → i18n, иначе meta.title / fallback.
+ * Имя маршрута из кода не подставляется: меню тогда показывает идентификатор
+ * вместо подписи из базы.
  * @param {{ meta?: { titleKey?: string, title?: string }, name?: string }|null|undefined} route
  * @param {string} [fallback='']
  * @returns {string}
@@ -18,5 +20,5 @@ export function resolveRouteTitle(route, fallback = '') {
     }
     return title
   }
-  return fallback || route?.name || ''
+  return fallback
 }
