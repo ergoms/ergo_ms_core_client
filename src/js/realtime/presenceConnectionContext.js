@@ -1,4 +1,5 @@
 import { decodePayload, getAccess } from '@/core/cms/js/tokenStorage.js'
+import { createClientUuid } from '@/js/createClientUuid.js'
 import { getSessionScopeGatingClaims } from '@/integrations/sessionScopeGating.js'
 
 let context = null
@@ -12,7 +13,7 @@ export function getPresenceConnectionContext() {
   if (!token) return null
   const signature = presenceIdentity(decodePayload(token), getSessionScopeGatingClaims())
   if (!context || signature !== context.signature) {
-    context = { connectionId: crypto.randomUUID(), token, signature }
+    context = { connectionId: createClientUuid(), token, signature }
   } else {
     context.token = token
   }
