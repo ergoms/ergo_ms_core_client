@@ -11,7 +11,7 @@
     <p v-if="showRangeInfo && rangeText" class="ergo-pagination__info text-muted small">
       {{ rangeText }}
       <span v-if="showPagePosition && totalPages > 1" class="ergo-pagination__position">
-        ({{ t('components.pagination.pagePosition', { page: modelValue, total: totalPages }) }})
+        ({{ t('components.pagination.pagePosition', { page: formatCount(modelValue), total: formatCount(totalPages) }) }})
       </span>
     </p>
 
@@ -110,6 +110,7 @@ import { computed } from 'vue'
 import LucideIcon from '@/components/LucideIcon.vue'
 import PaginationJump from '@/components/PaginationJump.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
+import { formatCount } from '@/js/utils/formatCount.js'
 
 const { t } = useAppI18n()
 
@@ -232,8 +233,8 @@ const rangeText = computed(() => {
   if (props.totalItems === null) {
     if (props.visibleCount && props.visibleCount > 0) {
       return t('components.pagination.shownRangeNoTotal', {
-        from: startIndex.value + 1,
-        to: endIndex.value,
+        from: formatCount(startIndex.value + 1),
+        to: formatCount(endIndex.value),
       })
     }
     return props.modelValue > 0
@@ -244,9 +245,9 @@ const rangeText = computed(() => {
     return t('components.pagination.noRecords')
   }
   return t('components.pagination.shownRange', {
-    from: startIndex.value + 1,
-    to: endIndex.value,
-    total: props.totalItems,
+    from: formatCount(startIndex.value + 1),
+    to: formatCount(endIndex.value),
+    total: formatCount(props.totalItems),
   })
 })
 
