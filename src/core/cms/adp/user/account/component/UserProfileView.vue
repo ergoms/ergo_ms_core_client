@@ -2,12 +2,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import LoadingContentArea from '@/components/LoadingContentArea.vue'
 import { useUserStore } from '@/core/cms/js/userStore.js'
-import {
-  USER_PROFILE_MAIN_FIELDS,
-  USER_PROFILE_ADDITIONAL_FIELDS,
-  mapUserProfileToFormData,
-} from '@/core/cms/adp/js/userProfileForm.js'
+import { USER_PROFILE_MAIN_FIELDS, USER_PROFILE_ADDITIONAL_FIELDS, mapUserProfileToFormData, } from '@/core/cms/adp/js/userProfileForm.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
+import { formatDate } from '@/js/utils/timeUtils.js'
 
 const { t } = useAppI18n()
 
@@ -17,6 +14,7 @@ const FIELD_LABEL_KEYS = {
   last_name: 'settings.profile.lastName',
   middle_name: 'settings.profile.middleName',
   phone: 'settings.profile.phone',
+  birth_date: 'settings.profile.birthDate',
   bio: 'settings.profile.bio',
 }
 
@@ -26,10 +24,40 @@ const profileData = ref(null)
 
 const formData = computed(() => mapUserProfileToFormData(profileData.value))
 
+function ageInYears(year, month, day) {
+  const today = new Date()
+  let age = today.getFullYear() - year
+  const birthdayThisYear = new Date(today.getFullYear(), month - 1, day)
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (todayStart < birthdayThisYear) {
+    age -= 1
+  }
+  return age
+}
+
+function formatBirthDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value).trim())
+  if (!match) {
+    return String(value).trim()
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const formatted = formatDate(new Date(year, month - 1, day))
+  const age = ageInYears(year, month, day)
+  if (age < 0) {
+    return formatted
+  }
+  return `${formatted} (${t('settings.profile.ageYears', age)})`
+}
+
 function displayValue(field) {
   const value = formData.value[field]
   if (value == null || String(value).trim() === '') {
     return t('settings.profile.notSpecified')
+  }
+  if (field === 'birth_date') {
+    return formatBirthDate(value)
   }
   return String(value).trim()
 }

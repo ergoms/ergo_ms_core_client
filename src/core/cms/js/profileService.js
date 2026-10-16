@@ -1,7 +1,38 @@
 import { apiClient } from '../../../js/api/manager'
 import { cmsEndpoints as endpoints } from '@/core/cms/js/endpoints.js'
 import { formatDateTime, getRelativeTime } from '@/js/utils/timeUtils.js'
+import { tGlobal } from '@/i18n/index.js'
 import { getDefaultLocale } from '@/i18n/supportedLocales.js'
+
+const BIRTH_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+
+function validateBirthDate(value) {
+  const match = BIRTH_DATE_PATTERN.exec(String(value).trim())
+  if (!match) {
+    return tGlobal('settings.profile.birthDateInvalid')
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsed = new Date(year, month - 1, day)
+  const isRealDay = parsed.getFullYear() === year
+    && parsed.getMonth() === month - 1
+    && parsed.getDate() === day
+  if (!isRealDay) {
+    return tGlobal('settings.profile.birthDateInvalid')
+  }
+  if (year < 1900) {
+    return tGlobal('settings.profile.birthDateTooEarly')
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (parsed > today) {
+    return tGlobal('settings.profile.birthDateFuture')
+  }
+  return ''
+}
 
 export const profileService = {
   // Получить полный профиль пользователя
@@ -87,6 +118,7 @@ export const profileService = {
 
       // Профиль пользователя
       phone: profile.phone || '',
+      birth_date: profile.birth_date || '',
       bio: profile.bio || '',
       language: profile.language || getDefaultLocale(),
       timezone: profile.timezone || 'Europe/Moscow',
@@ -158,6 +190,13 @@ export const profileService = {
     // Проверка био
     if (profileData.bio && profileData.bio.length > 500) {
       errors.bio = 'Описание не должно превышать 500 символов'
+    }
+
+    if (profileData.birth_date) {
+      const birthDateError = validateBirthDate(profileData.birth_date)
+      if (birthDateError) {
+        errors.birth_date = birthDateError
+      }
     }
 
     return {
