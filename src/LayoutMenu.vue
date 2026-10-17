@@ -391,8 +391,11 @@ onBeforeUnmount(() => {
     box-sizing: border-box;
     padding-inline-start: 0;
     padding-top: 0;
-    /* Фиксированный mobile-header — контент ниже шапки (с учётом safe-area) */
+    /* Фиксированный mobile-header — контент ниже шапки (с учётом safe-area).
+       Базовый min-height: 100dvh вместе с margin-top выше шапки, а контейнер
+       с overflow: hidden срезает низ: эта полоса не докручивается. */
     margin-top: var(--shell-mobile-header-offset);
+    min-height: 0;
     height: calc(100dvh - var(--shell-mobile-header-offset));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     overflow: auto;
@@ -408,6 +411,10 @@ onBeforeUnmount(() => {
       height: 100dvh;
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
+  }
+
+  .layout-page__content {
+    min-height: 100%;
   }
 
   .layout-page__content:has(.layout-content--flush) {
