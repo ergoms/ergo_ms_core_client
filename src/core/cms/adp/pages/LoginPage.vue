@@ -69,9 +69,6 @@ const submitForm = async () => {
       authGuard.startTokenValidation()
       const returnPath = consumePostLoginReturnPath()
       router.replace(returnPath || { name: 'AppHome' })
-      import('@/js/theme-service.js').then(({ syncSiteThemeFromApi }) => {
-        syncSiteThemeFromApi()
-      }).catch(() => {})
     } else {
       // Обработка ошибок от сервера
       if (authResult.errors && typeof authResult.errors === 'object') {

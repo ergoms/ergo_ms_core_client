@@ -179,6 +179,10 @@ export const useUserStore = defineStore('userStore', () => {
     if (data.menu) {
       await applyMenuBootstrap(data.menu)
     }
+    if (data.site_theme) {
+      const { applySiteThemePair } = await import('@/js/theme-service.js')
+      applySiteThemePair(data.site_theme)
+    }
     if (data.realtime) {
       applyRealtimeConfigFromApi(data.realtime)
     }

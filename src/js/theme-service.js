@@ -2,15 +2,8 @@ import { apiClient } from '@/js/api/manager'
 import { endpoints, initEndpoints } from '@/js/api/endpoints.js'
 import { isMaintenanceResponse } from '@/composables/useMaintenanceMode.js'
 import { logWarn } from '@/js/utils/logError.js'
-import {
-  applyThemeModePreference,
-  initTheme,
-  readThemePreference,
-  resolveThemeMode,
-  saveSiteThemePairToCache,
-  saveThemeToLocalStorage,
-  THEME_MODES,
-} from '@/js/theme-manager.js'
+import { getAccess } from '@/core/cms/js/tokenStorage.js'
+import { applyThemeModePreference, initTheme, loadThemeFromLocalStorage, readThemePreference, resolveThemeMode, saveSiteThemePairToCache, saveThemeToLocalStorage, THEME_MODES, } from '@/js/theme-manager.js'
 import { whenSessionReady } from '@/js/sessionReady.js'
 
 function normalizeThemePayload(data) {
@@ -49,36 +42,50 @@ function normalizeSiteThemePairPayload(data) {
 }
 
 /**
+ * Кладёт пару light+dark в кэш и применяет вариант под режим шестерёнки
+ * (localStorage `theme`), а не только base_theme темы.
+ * @returns {object|null} применённый вариант
+ */
+export function applySiteThemePair(data) {
+  const pair = normalizeSiteThemePairPayload(data)
+  const anchorVariant = pair?.variants.light || pair?.variants.dark
+  if (!pair || !anchorVariant) {
+    return null
+  }
+  saveSiteThemePairToCache(pair)
+  const stored = localStorage.getItem('theme')
+  const preference = (stored && THEME_MODES.includes(stored))
+    ? stored
+    : (anchorVariant.base_theme === 'dark' ? 'dark' : readThemePreference())
+  const resolvedMode = resolveThemeMode(preference)
+  const variant = pair.variants[resolvedMode] || anchorVariant
+  saveThemeToLocalStorage(variant)
+  applyThemeModePreference(preference)
+  return variant
+}
+
+/**
  * Загружает эффективную тему (пару light+dark) с API и применяет её.
- * Для авторизованного — личная палитра или стандарт сайта; для анонима — стандарт.
- * Публичный endpoint — работает и на странице входа.
- *
- * Сервер возвращает пару вариантов — кэшируем её целиком (для точного
- * подбора при последующей смене режима) и применяем вариант под текущий
- * режим шестерёнки (localStorage `theme`), а не только под base_theme темы.
+ * Для авторизованного — личная палитра или стандарт сайта.
+ * Без сессии кэш не затирается стандартом: экран входа остаётся на последней палитре.
+ * Первый визит без кэша берёт стандарт сайта.
  */
 export async function syncSiteThemeFromApi() {
   await initEndpoints()
   // Access только в памяти: на F5 сначала restoreSession, иначе active/ без JWT
   // вернёт стандарт сайта и затрёт личную палитру в localStorage.
   await whenSessionReady()
+  if (!getAccess() && loadThemeFromLocalStorage()) {
+    initTheme()
+    return loadThemeFromLocalStorage()
+  }
   try {
     // needToken=true: для авторизованного — личная палитра; без токена — стандарт сайта.
     const res = await apiClient.get(endpoints.themes.active, {}, true)
     if (res.success && res.data && !res.data.detail) {
-      const pair = normalizeSiteThemePairPayload(res.data)
-      const anchorVariant = pair?.variants.light || pair?.variants.dark
-      if (pair && anchorVariant) {
-        saveSiteThemePairToCache(pair)
-        const stored = localStorage.getItem('theme')
-        const preference = (stored && THEME_MODES.includes(stored))
-          ? stored
-          : (anchorVariant.base_theme === 'dark' ? 'dark' : readThemePreference())
-        const resolvedMode = resolveThemeMode(preference)
-        const variant = pair.variants[resolvedMode] || anchorVariant
-        saveThemeToLocalStorage(variant)
-        applyThemeModePreference(preference)
-        return variant
+      const applied = applySiteThemePair(res.data)
+      if (applied) {
+        return applied
       }
     }
   } catch (e) {
