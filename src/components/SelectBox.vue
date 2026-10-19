@@ -34,7 +34,9 @@
                     v-if="isOpen"
                     ref="menuAnchorEl"
                     class="dropdown-menu show"
+                    :popover="menuTopLayer ? 'manual' : undefined"
                     :class="{
+                        'dropdown-menu--top-layer': menuTopLayer,
                         'dropdown-menu--up': menuOpensUpward,
                         'dropdown-menu--side': placement === 'right',
                         'dropdown-menu--align-center': placement === 'right' && placementAlign === 'center',
@@ -143,8 +145,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick, useId } from 'vue'
 import LucideIcon from '@/components/LucideIcon.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-
-const MENU_MAX_HEIGHT = 260
+import { useSelectBoxMenuPosition } from '@/composables/useSelectBoxMenuPosition.js'
 
 defineOptions({ inheritAttrs: false })
 
@@ -340,41 +341,17 @@ const hasListContent = computed(() => {
 })
 
 const isOpen = ref(false)
-const menuOpensUpward = ref(false)
-const menuStyle = ref({
-    '--select-box-menu-max-height': `${MENU_MAX_HEIGHT}px`,
-})
+const rootEl = ref(null)
 const menuAnchorEl = ref(null)
 let suppressOutsideClick = false
 
-function updateMenuFit() {
-    if (!isOpen.value) return
-    const trigger = rootEl.value?.querySelector('.select-trigger')
-    if (!trigger) return
-    const rect = trigger.getBoundingClientRect()
-    const pad = 8
-    const spaceBelow = Math.max(0, window.innerHeight - pad - rect.bottom)
-    const spaceAbove = Math.max(0, rect.top - pad)
-    const stretch = props.menuMode === 'screen'
-    const measured = menuAnchorEl.value?.getBoundingClientRect().height || 0
-    const preferred = stretch ? (measured > 1 ? measured : 240) : MENU_MAX_HEIGHT
-    const openUp = props.placement !== 'right'
-        && preferred > spaceBelow
-        && spaceAbove > spaceBelow
-    menuOpensUpward.value = openUp
-    const available = props.placement === 'right'
-        ? Math.max(spaceBelow, spaceAbove)
-        : (openUp ? spaceAbove : spaceBelow)
-    const cap = stretch ? available : Math.min(MENU_MAX_HEIGHT, available || MENU_MAX_HEIGHT)
-    const anchorWidth = props.dropdownAnchorRef?.value?.getBoundingClientRect?.().width || 0
-    const minWidth = Math.max(props.dropdownMinWidth || 0, anchorWidth)
-    const style = {
-        '--select-box-menu-max-height': `${Math.max(0, cap)}px`,
-        '--select-box-menu-gap': `${props.placementGap}px`,
-    }
-    if (minWidth > 0) style.minWidth = `${Math.round(minWidth)}px`
-    menuStyle.value = style
-}
+const { menuTopLayer, menuOpensUpward, menuStyle, updateMenuPosition } = useSelectBoxMenuPosition({
+    props,
+    rootEl,
+    menuEl: menuAnchorEl,
+    isOpen,
+    onTriggerHidden: () => close(),
+})
 const searchInputEl = ref(null)
 let hoverCloseTimer = null
 
@@ -411,9 +388,9 @@ function open() {
     // Иначе document click того же жеста закрывает меню (Яндекс.Браузер, searchable).
     suppressOutsideClick = true
     nextTick(() => {
-        updateMenuFit()
+        updateMenuPosition()
         requestAnimationFrame(() => {
-            updateMenuFit()
+            updateMenuPosition()
             if (props.searchable) {
                 searchInputEl.value?.focus({ preventScroll: true })
             }
@@ -553,7 +530,6 @@ function handleClickOutside(e) {
     if (!root.contains(e.target)) close()
 }
 
-const rootEl = ref(null)
 const listContainerRef = ref(null)
 const listScrollTop = ref(0)
 const listViewportHeight = ref(260)
@@ -616,18 +592,12 @@ function onListScroll() {
     updateVisibleRange()
 }
 
-const onResize = () => {
-    if (!isOpen.value) return
-    updateMenuFit()
-}
 onMounted(() => {
     document.addEventListener('click', handleClickOutside, true)
-    window.addEventListener('resize', onResize)
 })
 onBeforeUnmount(() => {
     clearHoverCloseTimer()
     document.removeEventListener('click', handleClickOutside, true)
-    window.removeEventListener('resize', onResize)
 })
 
 watch([() => (props.virtualized ? effectiveOptionsForVirtual.value.length : filteredOptions.value.length), isOpen], () => {
