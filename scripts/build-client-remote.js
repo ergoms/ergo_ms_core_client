@@ -53,6 +53,7 @@ const HOST_SHARED = [
 ]
 
 const vue = requireFromNpm('@vitejs/plugin-vue')
+const AutoImport = requireFromNpm('unplugin-auto-import/vite')
 const { build, defineConfig, esmExternalRequirePlugin } = requireFromNpm('vite')
 
 const outDir = path.resolve(projectRoot, 'virtual_env/client-remotes', moduleName)
@@ -118,6 +119,20 @@ const config = defineConfig({
     warnLucideVueNextImportPlugin(),
     resolveFromNpmRootPlugin(),
     vue(),
+    // Оболочка подставляет logError сама. Сборка remote — отдельный Vite, без этого
+    // вызов в .vue остаётся голым идентификатором и падает в браузере.
+    AutoImport({
+      imports: [
+        {
+          '@/js/utils/logError.js': ['logError', 'logWarn', 'sanitizeError'],
+        },
+      ],
+      exclude: [
+        /[\\/]src[\\/]js[\\/](theme-manager|color-theme|boot-locale-prefetch|bootstrap-early|bootFailure)\.js$/,
+      ],
+      dts: false,
+      eslintrc: { enabled: false },
+    }),
     // require('vue') из CJS/UMD → import; top-level external иначе оставляет require в браузере.
     esmExternalRequirePlugin({ external: [...sharedList] }),
   ],

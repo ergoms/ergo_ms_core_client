@@ -71,6 +71,27 @@ export function parseApiErrorData(data, options = {}) {
 }
 
 /**
+ * Nginx подменяет обрыв upstream модуля на 502/503/504 и detail module_unavailable.
+ * Это не ошибка страницы: apiClient уже пишет предупреждение.
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isModuleUnavailableError(error) {
+  const status = error?.response?.status
+  if (status !== 502 && status !== 503 && status !== 504) {
+    return false
+  }
+  const data = error?.response?.data
+  const detail = typeof data === 'object' && data ? data.detail : data
+  const headers = error?.response?.headers || {}
+  return Boolean(
+    headers['x-ergo-module-unavailable']
+    || headers['X-Ergo-Module-Unavailable']
+    || detail === 'module_unavailable'
+  )
+}
+
+/**
  * @param {unknown} error — axios error или объект с response.data
  * @param {string} [fallback]
  * @returns {string}
@@ -83,14 +104,10 @@ export function extractApiError(error, fallback) {
   if (status === 413) {
     return tGlobal('errors.api.payloadTooLarge')
   }
-  const data = error?.response?.data
-  if (status === 502 || status === 503 || status === 504) {
-    const detail = typeof data === 'object' && data ? data.detail : data
-    const header = error?.response?.headers?.['x-ergo-module-unavailable']
-    if (header || detail === 'module_unavailable') {
-      return tGlobal('errors.api.moduleUnavailable')
-    }
+  if (isModuleUnavailableError(error)) {
+    return tGlobal('errors.api.moduleUnavailable')
   }
+  const data = error?.response?.data
   if (typeof status === 'number' && status >= 500) {
     const detail = isHtmlBody(data) ? '' : parseApiErrorData(data, { fallback: '', mode: 'first' })
     return detail || fallback || tGlobal('errors.api.serverTryLater')

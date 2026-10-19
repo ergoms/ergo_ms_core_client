@@ -21,7 +21,7 @@ import {
   showRateLimitNotice,
 } from '@/composables/useRateLimitNotice.js'
 import { resolveApiBaseUrl } from '@/js/api/baseUrl.js'
-import { extractApiError } from '@/js/utils/apiErrorMessage.js'
+import { extractApiError, isModuleUnavailableError } from '@/js/utils/apiErrorMessage.js'
 import { axiosSameOriginMediaRequest } from '@/js/utils/mediaDownload.js'
 import { logError, logWarn, sanitizeError } from '@/js/utils/logError.js'
 import { getCurrentLocale } from '@/i18n/index.js'
@@ -504,14 +504,7 @@ class ApiClient {
     }
 
     const data = error.response?.data
-    const detail = typeof data === 'object' && data ? data.detail : data
-    const headers = error.response?.headers || {}
-    const moduleGone = Boolean(
-      headers['x-ergo-module-unavailable']
-      || headers['X-Ergo-Module-Unavailable']
-      || detail === 'module_unavailable'
-    )
-    if (moduleGone && (status === 502 || status === 503 || status === 504)) {
+    if (isModuleUnavailableError(error)) {
       const message = extractApiError(error)
       logWarn('[apiClient] module unavailable', { url: requestUrl, status })
       return {
