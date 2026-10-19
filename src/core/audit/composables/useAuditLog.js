@@ -168,7 +168,19 @@ export function useAuditLog(options = {}) {
   })
 
   const watchState = routeQuery?.watchState ?? ((callback) => {
-    watch(localState, callback, { deep: true })
+    watch(
+      () => [
+        localState.value.q,
+        localState.value.page,
+        localState.value.module,
+        localState.value.action,
+        localState.value.severity,
+        localState.value.actor,
+        localState.value.date_from,
+        localState.value.date_to,
+      ],
+      () => callback(localState.value),
+    )
   })
 
   const searchQuery = computed(() => listState.value.q)

@@ -124,8 +124,7 @@ const submitForm = async () => {
     is_granted: form.value.is_granted
   })
 
-  await loadPermissions()
-  await loadModuleCatalog()
+  await Promise.all([loadPermissions(), loadModuleCatalog()])
   form.value = {
     module_name: '',
     permission_key: '',

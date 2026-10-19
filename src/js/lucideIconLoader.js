@@ -6,14 +6,7 @@
  * Модули и API передают строку; рендер — через LucideIcon / getLucideIconAsync.
  */
 
-/**
- * Vite разбивает каждый файл на отдельный чанк при dynamic import через glob.
- * Путь от src/js к virtual_env/npm/node_modules (см. npm-workspace).
- */
-const iconModules = import.meta.glob([
-  '../../../../virtual_env/npm/node_modules/@lucide/vue/dist/esm/icons/*.mjs',
-  '!../../../../virtual_env/npm/node_modules/@lucide/vue/dist/esm/icons/index.mjs',
-])
+import { CORE_ICON_LOADERS } from '@/js/lucideCoreIcons.generated.js'
 
 /**
  * Приводит произвольную строку к каноническому Lucide PascalCase.
@@ -55,16 +48,6 @@ export function normalizeLucideIconName(name) {
   return s || null
 }
 
-/** file (kebab) → loader */
-const iconLoaderByFile = new Map()
-for (const [key, loader] of Object.entries(iconModules)) {
-  const normalized = key.replace(/\\/g, '/')
-  const match = normalized.match(/\/icons\/([^/]+)\.m?js$/)
-  if (match && match[1] !== 'index') {
-    iconLoaderByFile.set(match[1], loader)
-  }
-}
-
 const iconComponentCache = new Map()
 /** file (kebab) → component — общие алиасы Home/House */
 const iconComponentByFile = new Map()
@@ -81,8 +64,14 @@ function loadIconMapModule() {
   return iconMapPromise
 }
 
-function resolveIconLoader(file) {
-  return iconLoaderByFile.get(file) || null
+/** @type {Promise<typeof import('./lucideIconGlob.js')>|null} */
+let iconGlobPromise = null
+
+function loadIconGlob() {
+  if (!iconGlobPromise) {
+    iconGlobPromise = import('./lucideIconGlob.js')
+  }
+  return iconGlobPromise
 }
 
 /**
@@ -102,24 +91,31 @@ async function loadIconComponent(iconName) {
   }
 
   const promise = (async () => {
-    const { LUCIDE_ICON_FILES } = await loadIconMapModule()
-    const file = LUCIDE_ICON_FILES[key]
+    const coreLoader = CORE_ICON_LOADERS[key]
+    let file = null
+    let mod = null
+    if (coreLoader) {
+      mod = await coreLoader()
+    } else {
+      const { LUCIDE_ICON_FILES } = await loadIconMapModule()
+      file = LUCIDE_ICON_FILES[key]
+      if (!file) {
+        return null
+      }
+      if (iconComponentByFile.has(file)) {
+        const cached = iconComponentByFile.get(file)
+        iconComponentCache.set(key, cached)
+        return cached
+      }
+      const { loadIconModule } = await loadIconGlob()
+      mod = await loadIconModule(file)
+    }
+    if (!mod) {
+      return null
+    }
     if (!file) {
-      return null
+      file = key
     }
-
-    if (iconComponentByFile.has(file)) {
-      const cached = iconComponentByFile.get(file)
-      iconComponentCache.set(key, cached)
-      return cached
-    }
-
-    const loader = resolveIconLoader(file)
-    if (!loader) {
-      return null
-    }
-
-    const mod = await loader()
     const component = mod.default || null
     if (component) {
       iconComponentByFile.set(file, component)

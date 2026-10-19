@@ -18,13 +18,23 @@ import { RouteGuardsManager } from './routing/RouteGuardsManager.js'
 import { IntegrationsManager } from './integrations/IntegrationsManager.js'
 import { fetchDisabledModules } from './core/disabledModules.js'
 import { registerClientModule } from './core/registerClientModule.js'
-import { getConfiguredModuleRemotes, loadFederatedModules } from './core/federatedModules.js'
+import { parseModuleRemotes } from './core/parseModuleRemotes.js'
+import { ensureSharedGlobs } from './core/ModuleLoader.js'
 import { clientEnv } from '@/js/clientEnv.js'
 import { authRoutes, coreRoutes } from '@/config/routes.js'
 import { getLocaleManager } from './i18n/LocaleManager.js'
 import { getThemeDefaultsManager } from './themes/ThemeDefaultsManager.js'
 import { logError } from '@/js/utils/logError.js'
 import { routeMapCoversPath, routesCoverPath } from './routes/vueRoutePath.js'
+
+function getConfiguredModuleRemotes() {
+  return parseModuleRemotes(clientEnv.moduleRemotes || '')
+}
+
+async function loadFederatedModules() {
+  const mod = await import('./core/federatedModules.js')
+  return mod.loadFederatedModules()
+}
 
 function yieldToBundledNavigation() {
   return new Promise((resolve) => {
@@ -104,6 +114,7 @@ export class ModuleManager {
   }
 
   async _doInitialize() {
+    await ensureSharedGlobs()
     await Promise.all([
       this.routeManager.initialize(),
       this.endpointManager.initialize(),

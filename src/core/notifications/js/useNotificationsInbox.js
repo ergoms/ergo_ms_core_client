@@ -234,12 +234,14 @@ async function loadSidebar() {
   if (sidebarLoading.value) return
   sidebarLoading.value = true
   try {
-    await loadSidebarActivityDays()
-    const listResp = await notificationsApi.list({
-      limit: SIDEBAR_PAGE_SIZE,
-      offset: 0,
-      inbox: 'sidebar',
-    })
+    const [, listResp] = await Promise.all([
+      loadSidebarActivityDays(),
+      notificationsApi.list({
+        limit: SIDEBAR_PAGE_SIZE,
+        offset: 0,
+        inbox: 'sidebar',
+      }),
+    ])
     const { list } = parseListResponse(listResp)
     sidebarItems.value = list
     syncPollingCursorFromItems()

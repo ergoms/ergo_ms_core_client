@@ -19,7 +19,7 @@
 -->
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   closeOffcanvasSidebar,
@@ -42,7 +42,7 @@ import NotFound from '@/components/NotFound.vue'
 import SpinnerLoading from '@/components/SpinnerLoading.vue'
 import SkipLink from '@/components/SkipLink.vue'
 import FloatingWidgetsHost from '@/components/FloatingWidgetsHost.vue'
-import DevToolsWidget from '@/core/cms/adp/devTools/DevToolsWidget.vue'
+import { clientEnv } from '@/js/clientEnv.js'
 import { accessDeniedState } from './js/accessDeniedState'
 import LucideIcon from '@/components/LucideIcon.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
@@ -50,6 +50,8 @@ import { useAppI18n } from '@/i18n/useAppI18n.js'
 import SiteWordmark from '@/components/SiteWordmark.vue'
 import RouteViewAnimated from '@/components/RouteViewAnimated.vue'
 import { resolveSidebarBrand } from '@/integrations/sidebarBrand.js'
+
+const DevToolsWidget = defineAsyncComponent(() => import('@/core/cms/adp/devTools/DevToolsWidget.vue'))
 
 const { t } = useAppI18n()
 const userStore = useUserStore()
@@ -254,7 +256,7 @@ onBeforeUnmount(() => {
   <div @click="closeMenu" class="layout-overlay" :class="{ active: isOverlayVisible }" />
   <component v-for="(plugin, index) in layoutPluginsRef" :key="index" :is="plugin" :isMenuCollapsed="isMenuCollapsed" :menuWidth="menuWidth" :menuRightEdge="menuRightEdge"/>
   <FloatingWidgetsHost :menu-right-edge="menuRightEdge" />
-  <DevToolsWidget />
+  <DevToolsWidget v-if="clientEnv.devToolsEnabled" />
 </template>
 
 <style scoped lang="scss">

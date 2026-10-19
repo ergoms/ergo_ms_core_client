@@ -345,6 +345,15 @@ function resolveManualChunk(id) {
       return 'module_stores'
     }
 
+    // Карта всех страниц и код регистрации remotes не нужны до первой отрисовки.
+    // В module_runtime они попали бы в modulepreload вместе с оболочкой.
+    if (
+      normalizedId.includes('/sharedGlobs.generated.js')
+      || normalizedId.includes('/federatedModules.js')
+    ) {
+      return undefined
+    }
+
     if (normalizedId.includes(CORE_MODULE_SYSTEM)) {
       return 'module_runtime'
     }

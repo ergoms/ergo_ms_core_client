@@ -74,10 +74,11 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick, onBeforeUnmount, useId } from 'vue'
+import { computed, defineAsyncComponent, ref, watch, nextTick, onBeforeUnmount, useId } from 'vue'
 import { ChevronDown, ChevronRight } from '@lucide/vue'
 import UserAvatar from '@/components/UserAvatar.vue'
-import DatePicker from '@/components/DatePicker.vue'
+
+const DatePicker = defineAsyncComponent(() => import('@/components/DatePicker.vue'))
 import { hideHoverTooltipForOwner, showHoverTooltip, } from '@/js/utils/hoverTooltipLayer.js'
 import { useFilterMenuFlyout } from '@/composables/useFilterMenuFlyout.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'

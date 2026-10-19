@@ -503,7 +503,7 @@ watch(menuSections, () => {
     updateWidth()
   }
   nextTick(syncMenuScrollShadow)
-}, { deep: true })
+})
 
 watch(sidebarBrandMeasureText, () => {
   if (allowMenuTransitions.value) {

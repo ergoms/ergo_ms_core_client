@@ -66,7 +66,11 @@ export class LocaleManager extends ModuleLoader {
     const packs = await this.loadModulePacks()
     for (const locale of pending) {
       for (const pack of packs.values()) {
-        const messages = pack[locale]
+        let messages = pack[locale]
+        if (typeof messages === 'function') {
+          const loaded = await messages()
+          messages = loaded?.default || loaded
+        }
         if (messages && typeof messages === 'object') {
           i18n.global.mergeLocaleMessage(locale, messages)
         }

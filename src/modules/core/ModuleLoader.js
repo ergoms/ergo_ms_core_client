@@ -7,46 +7,74 @@
  * Vite требует статические паттерны для import.meta.glob,
  * поэтому загружаем все файлы заранее и фильтруем по необходимости
  * 
- * ВАЖНО: Все глобы загружаются ОДИН РАЗ при импорте этого модуля (top-level),
- * что объединяет все запросы в один пакет при инициализации приложения.
+ * Карта страниц грузится одним динамическим импортом при первой инициализации,
+ * а не вместе с оболочкой: иначе import.meta.glob всех .vue сидит в modulepreload.
  */
 
 import { getDisabledModulesSync } from './disabledModules.js'
-import * as generatedGlobs from './sharedGlobs.generated.js'
 
 // Глобальный кеш для результатов loadAllModulesAsync
 const asyncModulesCache = new Map()
 
 // ============================================================================
-// Globs: core — статически; modules — из sharedGlobs.generated.js (prebuild)
+// Глобы заполняет ensureSharedGlobs() при первой инициализации маршрутов.
 // ============================================================================
 const sharedGlobs = {
-  coreRoutes: generatedGlobs.coreRoutes,
-  coreEndpoints: generatedGlobs.coreEndpoints,
-  corePermissionRules: generatedGlobs.corePermissionRules,
-  corePermissionSections: generatedGlobs.corePermissionSections,
-  coreRouteGuards: generatedGlobs.coreRouteGuards,
-  coreIntegrations: generatedGlobs.coreIntegrations,
-  coreComponents: generatedGlobs.coreComponents,
+  coreRoutes: {},
+  coreEndpoints: {},
+  corePermissionRules: {},
+  corePermissionSections: {},
+  coreRouteGuards: {},
+  coreIntegrations: {},
+  coreComponents: {},
+  modulesRoutes: {},
+  modulesEndpoints: {},
+  modulesPermissionRules: {},
+  modulesPermissionSections: {},
+  modulesRouteGuards: {},
+  modulesIntegrations: {},
+  modulesThemeDefaults: {},
+  modulesLocales: {},
+  modulesComponents: {},
+}
 
-  modulesRoutes: {
-    ...generatedGlobs.modulesRoutes,
-    ...generatedGlobs.modulesRoutesNested,
-  },
-  modulesEndpoints: generatedGlobs.modulesEndpoints,
-  modulesPermissionRules: generatedGlobs.modulesPermissionRules,
-  modulesPermissionSections: {
-    ...generatedGlobs.modulesPermissionSections,
-    ...generatedGlobs.modulesPermissionSectionsNested,
-  },
-  modulesRouteGuards: generatedGlobs.modulesRouteGuards,
-  modulesIntegrations: {
-    ...generatedGlobs.modulesIntegrations,
-    ...generatedGlobs.modulesIntegrationsNested,
-  },
-  modulesThemeDefaults: generatedGlobs.modulesThemeDefaults,
-  modulesLocales: generatedGlobs.modulesLocales,
-  modulesComponents: generatedGlobs.modulesComponents,
+let sharedGlobsPromise = null
+
+export function ensureSharedGlobs() {
+  if (!sharedGlobsPromise) {
+    sharedGlobsPromise = import('./sharedGlobs.generated.js').then((generatedGlobs) => {
+      sharedGlobs.coreRoutes = generatedGlobs.coreRoutes
+      sharedGlobs.coreEndpoints = generatedGlobs.coreEndpoints
+      sharedGlobs.corePermissionRules = generatedGlobs.corePermissionRules
+      sharedGlobs.corePermissionSections = generatedGlobs.corePermissionSections
+      sharedGlobs.coreRouteGuards = generatedGlobs.coreRouteGuards
+      sharedGlobs.coreIntegrations = generatedGlobs.coreIntegrations
+      sharedGlobs.coreComponents = generatedGlobs.coreComponents
+      sharedGlobs.modulesRoutes = {
+        ...generatedGlobs.modulesRoutes,
+        ...generatedGlobs.modulesRoutesNested,
+      }
+      sharedGlobs.modulesEndpoints = generatedGlobs.modulesEndpoints
+      sharedGlobs.modulesPermissionRules = generatedGlobs.modulesPermissionRules
+      sharedGlobs.modulesPermissionSections = {
+        ...generatedGlobs.modulesPermissionSections,
+        ...generatedGlobs.modulesPermissionSectionsNested,
+      }
+      sharedGlobs.modulesRouteGuards = generatedGlobs.modulesRouteGuards
+      sharedGlobs.modulesIntegrations = {
+        ...generatedGlobs.modulesIntegrations,
+        ...generatedGlobs.modulesIntegrationsNested,
+      }
+      sharedGlobs.modulesThemeDefaults = generatedGlobs.modulesThemeDefaults
+      sharedGlobs.modulesLocales = generatedGlobs.modulesLocales
+      sharedGlobs.modulesComponents = generatedGlobs.modulesComponents
+      return sharedGlobs
+    }).catch((error) => {
+      sharedGlobsPromise = null
+      throw error
+    })
+  }
+  return sharedGlobsPromise
 }
 
 export class ModuleLoader {
@@ -141,6 +169,7 @@ export class ModuleLoader {
    * @returns {Promise<Object>} - промис с загруженными модулями
    */
   async loadAllModulesAsync(pattern) {
+    await ensureSharedGlobs()
     // Проверяем кеш для этого паттерна
     if (asyncModulesCache.has(pattern)) {
       return asyncModulesCache.get(pattern)
