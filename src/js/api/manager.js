@@ -26,6 +26,12 @@ import { axiosSameOriginMediaRequest } from '@/js/utils/mediaDownload.js'
 import { logError, logWarn, sanitizeError } from '@/js/utils/logError.js'
 import { getCurrentLocale } from '@/i18n/index.js'
 
+function isRequestAborted(error) {
+  return error?.code === 'ERR_CANCELED'
+    || error?.name === 'CanceledError'
+    || error?.name === 'AbortError'
+}
+
 function bearerAccess(headers) {
   const raw = headers?.Authorization || headers?.authorization || ''
   if (typeof raw !== 'string') {
@@ -478,6 +484,15 @@ class ApiClient {
       }
     }
 
+
+    if (isRequestAborted(error)) {
+      return {
+        success: false,
+        message: '',
+        status: undefined,
+        errors: null,
+      }
+    }
 
     const status = error.response?.status
     const hadAuthHeader = Boolean(error?.config?.headers?.Authorization)
