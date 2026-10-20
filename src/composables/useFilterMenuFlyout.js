@@ -1,9 +1,7 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
-import {
-  OVERLAY_MENU_FLYOUT_Z_INDEX,
-  OVERLAY_MENU_Z_INDEX,
-} from '@/js/utils/overlayZIndex.js'
+import { buildAimTriangle, movementAimsAtRect } from '@/js/utils/menuAimTriangle.js'
+import { OVERLAY_MENU_FLYOUT_Z_INDEX, OVERLAY_MENU_Z_INDEX, } from '@/js/utils/overlayZIndex.js'
 
 const VIEWPORT_PADDING = 8
 const FLYOUT_MAX_WIDTH = 640
@@ -64,6 +62,10 @@ function measureFlyoutContentWidth(flyout, minWidth) {
  */
 export function useFilterMenuFlyout(options = {}) {
   const hoverCloseDelay = options.hoverCloseDelay ?? 120
+  const aimStallDelay = options.aimStallDelay ?? 250
+  const aimHistoryMs = options.aimHistoryMs ?? 200
+  const aimYTolerance = options.aimYTolerance ?? 72
+  const aimAnchorDistance = options.aimAnchorDistance ?? 12
   const flyoutMinWidth = options.flyoutMinWidth ?? 200
   const flyoutGap = options.flyoutGap ?? 2
 
@@ -80,6 +82,10 @@ export function useFilterMenuFlyout(options = {}) {
 
   let hoverCloseTimer = null
   let suppressOutsideClick = false
+  let aimTriangle = null
+  let hoveredRow = null
+  let aimStallTimer = null
+  let pointerHistory = []
 
   function clearHoverCloseTimer() {
     if (hoverCloseTimer !== null) {
@@ -88,20 +94,144 @@ export function useFilterMenuFlyout(options = {}) {
     }
   }
 
+  function clearAimStallTimer() {
+    if (aimStallTimer !== null) {
+      clearTimeout(aimStallTimer)
+      aimStallTimer = null
+    }
+  }
+
+  function clearAimTracking() {
+    aimTriangle = null
+    clearAimStallTimer()
+  }
+
+  function resetAimState() {
+    clearAimTracking()
+    hoveredRow = null
+    pointerHistory = []
+  }
+
+  function trackPointer(point) {
+    if (!point) return
+    const now = performance.now()
+    pointerHistory.push({ x: point.x, y: point.y, t: now })
+    const cutoff = now - aimHistoryMs
+    while (pointerHistory.length > 1 && pointerHistory[0].t < cutoff) {
+      pointerHistory.shift()
+    }
+    if (pointerHistory.length > 12) {
+      pointerHistory.splice(0, pointerHistory.length - 12)
+    }
+  }
+
+  function anchorForPoint(point, rect) {
+    const minDistance = aimAnchorDistance * aimAnchorDistance
+    const centerX = (rect.left + rect.right) / 2
+    const opensRight = point.x <= centerX
+    let best = null
+    for (const sample of pointerHistory) {
+      const dx = point.x - sample.x
+      const dy = point.y - sample.y
+      if (dx * dx + dy * dy < minDistance) continue
+      const onMenuSide = opensRight ? sample.x <= point.x + 1 : sample.x >= point.x - 1
+      if (!onMenuSide) continue
+      if (!best || (opensRight ? sample.x < best.x : sample.x > best.x)) best = sample
+    }
+    return best
+  }
+
+  function pointerPoint(event) {
+    if (Number.isFinite(event?.clientX) && Number.isFinite(event?.clientY)) {
+      return { x: event.clientX, y: event.clientY }
+    }
+    const last = pointerHistory[pointerHistory.length - 1]
+    return last ? { x: last.x, y: last.y } : null
+  }
+
+  function flyoutAimRect() {
+    const flyout = flyoutPanelEl.value
+    if (!(flyout instanceof HTMLElement)) return null
+    const rect = flyout.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return null
+    return rect
+  }
+
+  function aimsAtOpenFlyout(point) {
+    if (!point || !activeFlyoutKey.value || pinnedFlyoutKey.value) return false
+    const rect = flyoutAimRect()
+    if (!rect) return false
+    const anchor = anchorForPoint(point, rect)
+    if (!anchor) return false
+    return movementAimsAtRect(anchor, point, rect, aimYTolerance)
+  }
+
+  function holdFlyoutForAim(point) {
+    if (!aimsAtOpenFlyout(point)) return false
+    const rect = flyoutAimRect()
+    const anchor = rect ? anchorForPoint(point, rect) : null
+    if (!rect || !anchor) return false
+    aimTriangle = buildAimTriangle(anchor, rect, aimYTolerance)
+    clearHoverCloseTimer()
+    armAimStallTimer()
+    return true
+  }
+
+  function armAimStallTimer() {
+    clearAimStallTimer()
+    aimStallTimer = setTimeout(() => {
+      aimStallTimer = null
+      if (!aimTriangle) return
+      resolveAimTarget()
+    }, aimStallDelay)
+  }
+
+  function isPointInsideFlyout(point) {
+    const flyout = flyoutPanelEl.value
+    if (!(flyout instanceof HTMLElement)) return false
+    const rect = flyout.getBoundingClientRect()
+    return point.x >= rect.left
+      && point.x <= rect.right
+      && point.y >= rect.top
+      && point.y <= rect.bottom
+  }
+
+  function rowFromTarget(target) {
+    const main = mainPanelEl.value
+    if (!(main instanceof HTMLElement) || !(target instanceof Element)) return null
+    const row = target.closest('.filter-menu__row')
+    if (!(row instanceof HTMLElement) || !main.contains(row)) return null
+    const key = row.dataset.fieldKey
+    if (!key) return null
+    return { key, el: row }
+  }
+
+  function resolveAimTarget() {
+    const row = hoveredRow
+    clearAimTracking()
+    if (pinnedFlyoutKey.value) return
+    if (
+      row?.el instanceof HTMLElement
+      && row.el.isConnected
+      && row.key !== activeFlyoutKey.value
+    ) {
+      openFlyout(row.key, row.el)
+      return
+    }
+    if (!row?.el?.isConnected) {
+      scheduleFlyoutClose()
+    }
+  }
+
   function scheduleFlyoutClose() {
     clearHoverCloseTimer()
     hoverCloseTimer = setTimeout(() => {
-      if (pinnedFlyoutKey.value) {
-        hoverCloseTimer = null
-        return
-      }
-      const hovered = document.querySelector(`${DATE_PICKER_OVERLAY_SELECTOR}:hover`)
-      if (hovered) {
-        hoverCloseTimer = null
-        return
-      }
-      activeFlyoutKey.value = null
       hoverCloseTimer = null
+      // Пока курсор внутри треугольника, закрытие откладывается: выход из него закроет само.
+      if (pinnedFlyoutKey.value || aimTriangle) return
+      const hovered = document.querySelector(`${DATE_PICKER_OVERLAY_SELECTOR}:hover`)
+      if (hovered) return
+      activeFlyoutKey.value = null
     }, hoverCloseDelay)
   }
 
@@ -223,6 +353,7 @@ export function useFilterMenuFlyout(options = {}) {
 
   function closeMain() {
     clearHoverCloseTimer()
+    resetAimState()
     isMainOpen.value = false
     activeFlyoutKey.value = null
     pinnedFlyoutKey.value = null
@@ -241,7 +372,10 @@ export function useFilterMenuFlyout(options = {}) {
 
   function openFlyout(fieldKey, rowEl, { pin = false } = {}) {
     if (!fieldKey) return
+    const switching = activeFlyoutKey.value && String(activeFlyoutKey.value) !== String(fieldKey)
     clearHoverCloseTimer()
+    clearAimTracking()
+    if (switching) pointerHistory = []
     activeFlyoutKey.value = fieldKey
     if (pin) {
       pinnedFlyoutKey.value = pinnedFlyoutKey.value === fieldKey ? null : fieldKey
@@ -259,6 +393,7 @@ export function useFilterMenuFlyout(options = {}) {
 
   function closeFlyout() {
     clearHoverCloseTimer()
+    resetAimState()
     activeFlyoutKey.value = null
     pinnedFlyoutKey.value = null
   }
@@ -269,18 +404,73 @@ export function useFilterMenuFlyout(options = {}) {
     }
   }
 
-  function onRowEnter(fieldKey, rowEl) {
+  function onRowEnter(fieldKey, rowEl, event) {
+    hoveredRow = { key: fieldKey, el: rowEl }
     if (pinnedFlyoutKey.value && pinnedFlyoutKey.value !== fieldKey) return
+    if (activeFlyoutKey.value && activeFlyoutKey.value !== fieldKey && holdFlyoutForAim(pointerPoint(event))) {
+      return
+    }
     openFlyout(fieldKey, rowEl)
   }
 
-  function onRowLeave() {
+  function onRowLeave(event) {
+    const rowEl = event?.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event?.target?.closest?.('.filter-menu__row')
+    if (rowEl && hoveredRow?.el === rowEl) {
+      hoveredRow = null
+    }
+    const enteredRow = rowFromTarget(event?.relatedTarget)
+    if (enteredRow) hoveredRow = enteredRow
     if (pinnedFlyoutKey.value) return
+    if (event?.pointerType === 'touch') {
+      scheduleFlyoutClose()
+      return
+    }
+    const point = pointerPoint(event)
+    const leftActiveRow = Boolean(
+      rowEl instanceof HTMLElement
+      && activeFlyoutKey.value != null
+      && String(rowEl.dataset.fieldKey) === String(activeFlyoutKey.value),
+    )
+    if (leftActiveRow && holdFlyoutForAim(point)) return
+    if (aimTriangle) return
+    if (point && (isPointInsideFlyout(point) || isDatePickerOverlay(event?.relatedTarget))) {
+      clearHoverCloseTimer()
+      return
+    }
     scheduleFlyoutClose()
   }
 
   function onFlyoutEnter() {
     clearHoverCloseTimer()
+    clearAimTracking()
+  }
+
+  function onDocumentPointerMove(event) {
+    if (!isMainOpen.value || event.pointerType === 'touch') return
+    const point = { x: event.clientX, y: event.clientY }
+    const underRow = rowFromTarget(event.target)
+    if (underRow) {
+      hoveredRow = underRow
+    } else if (!isPointInsideFlyout(point) && !isDatePickerOverlay(event.target)) {
+      hoveredRow = null
+    }
+    if (isPointInsideFlyout(point) || isDatePickerOverlay(event.target)) {
+      clearHoverCloseTimer()
+      clearAimTracking()
+      trackPointer(point)
+      return
+    }
+    if (aimTriangle) {
+      if (aimsAtOpenFlyout(point)) {
+        armAimStallTimer()
+        trackPointer(point)
+        return
+      }
+      resolveAimTarget()
+    }
+    trackPointer(point)
   }
 
   function onFlyoutLeave(event) {
@@ -319,6 +509,7 @@ export function useFilterMenuFlyout(options = {}) {
   onMounted(() => {
     document.addEventListener('mousedown', onDocumentMouseDown)
     document.addEventListener('keydown', onDocumentKeydown)
+    document.addEventListener('pointermove', onDocumentPointerMove)
     window.addEventListener('resize', onWindowChange)
     window.addEventListener('scroll', onWindowChange, true)
   })
@@ -326,9 +517,11 @@ export function useFilterMenuFlyout(options = {}) {
   onBeforeUnmount(() => {
     document.removeEventListener('mousedown', onDocumentMouseDown)
     document.removeEventListener('keydown', onDocumentKeydown)
+    document.removeEventListener('pointermove', onDocumentPointerMove)
     window.removeEventListener('resize', onWindowChange)
     window.removeEventListener('scroll', onWindowChange, true)
     clearHoverCloseTimer()
+    resetAimState()
   })
 
   return {

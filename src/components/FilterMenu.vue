@@ -14,7 +14,7 @@
               {{ field.label }}
             </li>
             <li v-else-if="isInteractiveField(field)">
-              <button type="button" class="filter-menu__row" :class="{ 'filter-menu__row--active': activeFlyoutKey === field.key }" :data-field-key="field.key" @mouseenter="onRowEnter(field.key, $event.currentTarget)" @mouseleave="onRowLeave" @click.stop="onRowClick(field, $event)">
+              <button type="button" class="filter-menu__row" :class="{ 'filter-menu__row--active': activeFlyoutKey === field.key }" :data-field-key="field.key" @mouseenter="onRowEnter(field.key, $event.currentTarget, $event)" @mouseleave="onRowLeave($event)" @click.stop="onRowClick(field, $event)">
                 <span class="filter-menu__row-label" @mouseenter="onTruncatedLabelEnter($event, field.label)" @mouseleave="onTruncatedLabelLeave">{{ field.label }}</span>
                 <span class="filter-menu__row-value text-muted">
                   <span v-if="field.showOptionAvatars && getOptionAvatarProps(getSelectedOption(field))" class="filter-menu__row-value-with-avatar">
@@ -60,12 +60,7 @@
             <label :for="`filter-menu-date-${activeField.key}`" class="form-label mb-1">
               {{ activeField.label }}
             </label>
-            <DatePicker
-              :id="`filter-menu-date-${activeField.key}`"
-              :model-value="getFieldRawValue(activeField.key)"
-              @update:model-value="onDateChange(activeField, $event)"
-              @focusin="pinActiveFlyout"
-            />
+            <DatePicker :id="`filter-menu-date-${activeField.key}`" :model-value="getFieldRawValue(activeField.key)" @update:model-value="onDateChange(activeField, $event)" @focusin="pinActiveFlyout"/>
           </div>
         </template>
       </div>
