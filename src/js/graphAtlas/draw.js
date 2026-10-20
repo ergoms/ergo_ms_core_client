@@ -403,11 +403,55 @@ function drawVisibleEdges(state, vis, dim) {
   ctx.setLineDash([])
 }
 
-function drawFocusEdges(state, vis) {
+function nodeScreenScale(k) {
+  return Math.max(0.8, Math.min(2.2, Math.sqrt(k) * 1.1))
+}
+
+function rimAlong(n, R, nsc, ux, uy) {
+  const r = R(n) * nsc
+  if (!n.hub) return r
+  const ax = Math.abs(ux) > 1e-4 ? r / Math.abs(ux) : Infinity
+  const ay = Math.abs(uy) > 1e-4 ? r / Math.abs(uy) : Infinity
+  return Math.min(ax, ay)
+}
+
+function shortenCurve(x1, y1, cx, cy, x2, y2, tn, R, nsc, full) {
+  let t = 1
+  if (!full) {
+    let lo = 0
+    let hi = 1
+    for (let i = 0; i < 14; i += 1) {
+      const mid = (lo + hi) / 2
+      const u = 1 - mid
+      const x = u * u * x1 + 2 * u * mid * cx + mid * mid * x2
+      const y = u * u * y1 + 2 * u * mid * cy + mid * mid * y2
+      const dx = x - x2
+      const dy = y - y2
+      const dist = Math.hypot(dx, dy) || 1
+      if (dist > rimAlong(tn, R, nsc, dx / dist, dy / dist)) lo = mid
+      else hi = mid
+    }
+    t = lo
+  }
+  const u = 1 - t
+  const qx = x1 + (cx - x1) * t
+  const qy = y1 + (cy - y1) * t
+  const rx = cx + (x2 - cx) * t
+  const ry = cy + (y2 - cy) * t
+  const dx = 2 * u * (cx - x1) + 2 * t * (x2 - cx)
+  const dy = 2 * u * (cy - y1) + 2 * t * (y2 - cy)
+  const len = Math.hypot(dx, dy) || 1
+  return {
+    cx: qx, cy: qy, x: qx + (rx - qx) * t, y: qy + (ry - qy) * t, ux: dx / len, uy: dy / len,
+  }
+}
+
+function eachFocusEdge(state, vis, paint) {
   const {
-    ctx, nodes, edges, adj, sel, T, R, css, ok,
+    nodes, edges, adj, sel, T, R, ok,
   } = state
   const k = T.k
+  const nsc = nodeScreenScale(k)
   adj[sel].forEach((j) => {
     const e = edges[j]
     if (!ok(e)) return
@@ -418,32 +462,57 @@ function drawFocusEdges(state, vis) {
     const y1 = sn.y * k + T.y
     const x2 = tn.x * k + T.x
     const y2 = tn.y * k + T.y
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    if (sn.cl !== tn.cl) {
+    const curved = sn.cl !== tn.cl
+    let end = { x: x2, y: y2, ux: 0, uy: 0, cx: 0, cy: 0 }
+    if (curved) {
       const mx = (x1 + x2) / 2
       const my = (y1 + y2) / 2
-      ctx.quadraticCurveTo(mx - (y2 - y1) * 0.15, my + (x2 - x1) * 0.15, x2, y2)
-    } else ctx.lineTo(x2, y2)
+      const cx = mx - (y2 - y1) * 0.15
+      const cy = my + (x2 - x1) * 0.15
+      end = shortenCurve(x1, y1, cx, cy, x2, y2, tn, R, nsc, e.k === 2)
+    } else if (e.k !== 2) {
+      const len = Math.hypot(x2 - x1, y2 - y1) || 1
+      const ux = (x2 - x1) / len
+      const uy = (y2 - y1) / len
+      const rim = rimAlong(tn, R, nsc, ux, uy)
+      end = { x: x2 - ux * rim, y: y2 - uy * rim, ux, uy, cx: 0, cy: 0 }
+    }
+    paint(e, x1, y1, end, curved, k)
+  })
+}
+
+function drawFocusEdges(state, vis) {
+  const { ctx, css } = state
+  eachFocusEdge(state, vis, (e, x1, y1, end, curved) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    if (curved) ctx.quadraticCurveTo(end.cx, end.cy, end.x, end.y)
+    else ctx.lineTo(end.x, end.y)
     ctx.setLineDash(e.k === 2 ? [5, 4] : [])
     ctx.lineWidth = 0.8 + e.w * 3.4
     ctx.strokeStyle = alpha([css.cmp, css.inc, css.sim][e.k], 0.35 + e.w * 0.6)
     ctx.stroke()
-    if (e.k !== 2 && k > 0.8) {
-      const ang = Math.atan2(y2 - y1, x2 - x1)
-      const rr = R(tn) * Math.max(1, k * 0.8) + 3
-      const ax = x2 - Math.cos(ang) * rr
-      const ay = y2 - Math.sin(ang) * rr
-      ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.moveTo(ax - Math.cos(ang - 0.45) * 8, ay - Math.sin(ang - 0.45) * 8)
-      ctx.lineTo(ax, ay)
-      ctx.lineTo(ax - Math.cos(ang + 0.45) * 8, ay - Math.sin(ang + 0.45) * 8)
-      ctx.lineWidth = 1.4
-      ctx.stroke()
-    }
   })
   ctx.setLineDash([])
+}
+
+function drawFocusArrows(state, vis) {
+  const { ctx, css, T } = state
+  if (T.k <= 0.8) return
+  const wing = 16
+  const spread = 0.55
+  eachFocusEdge(state, vis, (e, _x1, _y1, end) => {
+    if (e.k === 2) return
+    const ang = Math.atan2(end.uy, end.ux)
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(end.x, end.y)
+    ctx.lineTo(end.x - Math.cos(ang - spread) * wing, end.y - Math.sin(ang - spread) * wing)
+    ctx.lineTo(end.x - Math.cos(ang + spread) * wing, end.y - Math.sin(ang + spread) * wing)
+    ctx.closePath()
+    ctx.fillStyle = [css.cmp, css.inc, css.sim][e.k]
+    ctx.fill()
+  })
 }
 
 function addRound(path, x, y, r) {
@@ -456,7 +525,7 @@ function drawNodes(state, vis, inV, dim, simple) {
     ctx, css, nodes, F, sel, nbSet, T, R, grid, vx0, vy0, vx1, vy1,
   } = state
   const k = T.k
-  const nsc = Math.max(0.8, Math.min(2.2, Math.sqrt(k) * 1.1))
+  const nsc = nodeScreenScale(k)
   const candidates = grid
     ? queryGrid(grid, vx0, vy0, vx1, vy1)
     : nodes
@@ -528,6 +597,7 @@ export function createAtlasRenderer(state) {
     drawWorldLayer(state, D, over, interacting, dim, vis)
     if (!interacting && dim) drawFocusEdges(state, vis)
     drawNodes(state, vis, inV, dim, interacting)
+    if (!interacting && dim) drawFocusArrows(state, vis)
     if (!interacting) {
       drawLabels(state, k, inV, dim, vis)
       drawTerritoryLabels(state, k, over, dim, vis)
