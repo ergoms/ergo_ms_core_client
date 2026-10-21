@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './runtime.js'
 
 const username = process.env.ERGO_E2E_USER
 const password = process.env.ERGO_E2E_PASSWORD
