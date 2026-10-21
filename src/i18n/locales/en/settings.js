@@ -523,7 +523,7 @@ export default {
     h8Title: 'Platform access control and audit',
     h8Text: 'Roles, policies and an action log at system level: every module joins one trust model instead of inventing its own checks and logs.',
   },
-  messenger: {
+  chat: {
     user: 'User',
     message: 'Message',
     attachment: 'Attachment',

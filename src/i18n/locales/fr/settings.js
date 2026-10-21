@@ -523,7 +523,7 @@ export default {
     h8Title: 'Contrôle d’accès et audit plateforme',
     h8Text: 'Rôles, politiques et journal des actions au niveau système : chaque module entre dans un seul modèle de confiance au lieu d’inventer ses propres contrôles et logs.',
   },
-  messenger: {
+  chat: {
     user: 'Utilisateur',
     message: 'Message',
     attachment: 'Pièce jointe',

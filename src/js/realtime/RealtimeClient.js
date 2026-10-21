@@ -144,7 +144,7 @@ export function getRealtimeClient() {
 }
 
 export function messengerTopic(contentType, objectId) {
-  return `messenger:${contentType}:${objectId}`
+  return `chat:${contentType}:${objectId}`
 }
 
 export function presenceAdminTopic() {

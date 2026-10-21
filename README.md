@@ -10,7 +10,7 @@
 |---------|------------|
 | `src/components/` | общие компоненты ядра (`SelectBox`, `SearchInput`, `DropDown`, `UserAvatar`, …) |
 | `src/components/menu/` | боковое меню (`MenuList`, `MenuGroup`, composables) |
-| `src/core/` | CMS, админка, авторизация, профиль, audit, messenger, notifications |
+| `src/core/` | CMS, админка, авторизация, профиль, audit, notifications |
 | `src/modules/` | discovery маршрутов, тем, i18n и прав (`ModuleLoader`) |
 | `src/integrations/` | ModuleBridge, контракты, layout plugins, session-scope |
 | `src/i18n/` | каталоги локализации клиента |

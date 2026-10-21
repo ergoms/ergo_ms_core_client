@@ -400,7 +400,7 @@ onBeforeUnmount(() => {
     overflow: auto;
     overscroll-behavior: contain;
 
-    /* Flush/full-height экраны сами учитывают safe-area (messenger и т.п.) */
+    /* Flush/full-height экраны сами учитывают safe-area (чаты и т.п.) */
     &:has(.layout-content--flush) {
       padding-bottom: 0;
     }

@@ -5,28 +5,28 @@ const DEFAULT_INTERVALS_MS = {
   presence: 45000,
   notifications: 10000,
   adminPresence: 10000,
-  messenger: 3000,
+  chat: 3000,
 }
 
 const ACTIVE_INTERVALS_MS = {
   presence: 45000,
   notifications: 8000,
   adminPresence: 8000,
-  messenger: 2000,
+  chat: 2000,
 }
 
 const BUILD_POLL_MS = {
   presence: clientEnv.realtimePollPresenceMs,
   notifications: clientEnv.realtimePollNotificationsMs,
   adminPresence: clientEnv.realtimePollAdminPresenceMs,
-  messenger: clientEnv.realtimePollMessengerMs,
+  chat: clientEnv.realtimePollMessengerMs,
 }
 
 const API_POLL_KEY_TO_CHANNEL = {
   presence: 'presence',
   notifications: 'notifications',
   admin_presence: 'adminPresence',
-  messenger: 'messenger',
+  chat: 'chat',
 }
 
 /** @type {'websocket' | 'sse' | 'http_polling' | null} */
@@ -129,14 +129,14 @@ function resolveIntervalMs(channel) {
 }
 
 /**
- * @param {'presence' | 'notifications' | 'adminPresence' | 'messenger'} channel
+ * @param {'presence' | 'notifications' | 'adminPresence' | 'chat'} channel
  */
 export function pollIntervalMs(channel) {
   return resolveIntervalMs(channel) ?? DEFAULT_INTERVALS_MS[channel] ?? 10000
 }
 
 /**
- * @param {'presence' | 'notifications' | 'adminPresence' | 'messenger'} channel
+ * @param {'presence' | 'notifications' | 'adminPresence' | 'chat'} channel
  */
 export function activePollIntervalMs(channel) {
   const resolved = resolveIntervalMs(channel)
