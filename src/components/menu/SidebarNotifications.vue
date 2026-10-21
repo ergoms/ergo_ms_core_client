@@ -241,7 +241,7 @@ async function onHideSidebar(id) {
             </div>
 
             <div v-else class="notifications-dropdown__scroll">
-              <ul ref="listRef" class="notifications-list" role="list" :aria-label="t('menu.notifications.listAria')">
+              <ul ref="listRef" class="notifications-list" :aria-label="t('menu.notifications.listAria')">
                 <NotificationItem v-for="item in sidebarItems" :key="item.id" :notification="item" compact show-sidebar-hide :date-style="itemDateStyle(item)" @activate="onActivate" @mark-read="markRead" @hide-sidebar="onHideSidebar" @hover-start="onItemHoverStart" @hover-end="onItemHoverEnd"/>
               </ul>
             </div>

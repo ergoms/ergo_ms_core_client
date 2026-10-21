@@ -268,7 +268,7 @@ function portY(list, id, item) {
   return top + (height / 2) + (i - (n - 1) / 2) * spread
 }
 
-function routeEdges(items, byId, children) {
+function routeEdges(items, byId) {
   const outgoing = {}
   const incoming = {}
   for (const item of items) {
@@ -414,7 +414,7 @@ export function layoutLaneGraph({ items, lanes } = {}) {
   const laneCount = Math.max(maxLane, laneCountFromProp) + 1
   const { byId, children, parents } = buildAdjacency(packed)
   const metrics = computeMetrics(packed, children, parents)
-  const edges = routeEdges(packed, byId, children)
+  const edges = routeEdges(packed, byId)
   const width = Math.max(LANE_GRAPH_COLUMN_PITCH, laneCount * LANE_GRAPH_COLUMN_PITCH)
   const height = Math.max(LANE_GRAPH_HEADER_HEIGHT + LANE_GRAPH_ROW_PITCH, canvasHeight)
   return {

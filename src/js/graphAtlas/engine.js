@@ -17,7 +17,7 @@ import {
   nodeVisible,
 } from './draw.js'
 import {
-  TER, DEFAULT_STRINGS, fmt, localXY, reducedMotion,
+  TER, DEFAULT_STRINGS, localXY, reducedMotion,
   pickSimilarBridges, EDGE_KIND_SIMILAR, leafLeafCrossCluster,
 } from './shared.js'
 
