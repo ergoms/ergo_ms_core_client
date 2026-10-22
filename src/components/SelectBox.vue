@@ -1,28 +1,8 @@
 <template>
     <div class="select-box" ref="rootEl" v-csp-style="rootCssVars" v-bind="$attrs">
         <label v-if="label" class="form-label mb-1" :for="triggerId">{{ label }}</label>
-        <div
-            class="dropdown"
-            :class="{ 'is-open': isOpen }"
-            @mouseenter="onHoverZoneEnter"
-            @mouseleave="onHoverZoneLeave"
-        >
-            <button
-                :id="triggerId"
-                class="btn btn-light w-100 d-flex align-items-center justify-content-between select-trigger"
-                :class="{
-                    'select-trigger--open': isOpen,
-                    'select-trigger--open-up': isOpen && menuOpensUpward,
-                }"
-                type="button"
-                :disabled="disabled"
-                :aria-label="triggerAriaLabel"
-                :aria-expanded="isOpen"
-                :aria-controls="listboxId"
-                aria-haspopup="listbox"
-                @click="toggle"
-                @blur="$emit('blur')"
-            >
+        <div class="dropdown" :class="{ 'is-open': isOpen }" @mouseenter="onHoverZoneEnter" @mouseleave="onHoverZoneLeave">
+            <button :id="triggerId" class="btn btn-light w-100 d-flex align-items-center justify-content-between select-trigger" :class="{ 'select-trigger--open': isOpen, 'select-trigger--open-up': isOpen && menuOpensUpward, }" type="button" :disabled="disabled" :aria-label="triggerAriaLabel" :aria-expanded="isOpen" :aria-controls="listboxId" aria-haspopup="listbox" @click="toggle" @blur="$emit('blur')">
                 <span class="select-trigger-slot d-flex align-items-center flex-grow-1 me-2">
                     <slot name="selected" :option="selectedOption" :label="currentLabel">
                         <span class="value-text">{{ currentLabel }}</span>
@@ -30,38 +10,10 @@
                 </span>
                 <span v-if="!hideChevron" class="d-inline-flex align-items-center select-trigger-chevron" :class="{ 'select-trigger-chevron--open': isOpen }" aria-hidden="true"><LucideIcon name="ChevronDown" class="icon-center" /></span>
             </button>
-                <div
-                    v-if="isOpen"
-                    ref="menuAnchorEl"
-                    class="dropdown-menu show"
-                    :popover="menuTopLayer ? 'manual' : undefined"
-                    :class="{
-                        'dropdown-menu--top-layer': menuTopLayer,
-                        'dropdown-menu--up': menuOpensUpward,
-                        'dropdown-menu--side': placement === 'right',
-                        'dropdown-menu--align-center': placement === 'right' && placementAlign === 'center',
-                        'select-box-menu--uniform-font': uniformDropdownListFont,
-                        [dropdownMenuClass]: Boolean(dropdownMenuClass),
-                    }"
-                    v-csp-style="menuStyle"
-                    role="listbox"
-                    :id="listboxId"
-                    :aria-labelledby="triggerId"
-                    @mouseenter="onHoverZoneEnter"
-                    @mouseleave="onHoverZoneLeave"
-                >
-                        <input
-                            v-if="searchable"
-                            ref="searchInputEl"
-                            v-model="searchQuery"
-                            type="text"
-                            class="select-box-search"
-                            :placeholder="resolvedSearchPlaceholder"
-                            :aria-label="resolvedSearchPlaceholder || t('components.selectBox.search')"
-                            autocomplete="off"
-                        />
+                <div v-if="isOpen" ref="menuAnchorEl" class="dropdown-menu show" :popover="menuTopLayer ? 'manual' : undefined" :class="{ 'dropdown-menu--top-layer': menuTopLayer, 'dropdown-menu--up': menuOpensUpward, 'dropdown-menu--side': placement === 'right', 'dropdown-menu--align-center': placement === 'right' && placementAlign === 'center', 'select-box-menu--uniform-font': uniformDropdownListFont, [dropdownMenuClass]: Boolean(dropdownMenuClass), }" v-csp-style="menuStyle" role="listbox" :id="listboxId" :aria-labelledby="triggerId" @mouseenter="onHoverZoneEnter" @mouseleave="onHoverZoneLeave">
+                        <SearchInput v-if="searchable" ref="searchInputEl" v-model="searchQuery" class="select-box-search" layout="fill" :show-icon="false" :clearable="true" :placeholder="resolvedSearchPlaceholder"/>
                         <template v-if="!virtualized">
-                            <ul class="dropdown-menu-list" role="presentation">
+                            <ul ref="listContainerRef" class="dropdown-menu-list" role="presentation" @scroll="onListScroll">
                                 <li v-if="includeAllOption && !hasActiveSearch">
                                     <a class="dropdown-item" :class="{ active: multiple ? (modelValue?.length === 0) : isSelected(null) }" href="#" @click.prevent="choose(null)">{{ resolvedAllLabel }}</a>
                                 </li>
@@ -144,6 +96,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick, useId } from 'vue'
 import LucideIcon from '@/components/LucideIcon.vue'
+import SearchInput from '@/components/SearchInput.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { useSelectBoxMenuPosition } from '@/composables/useSelectBoxMenuPosition.js'
 
@@ -177,6 +130,8 @@ const props = defineProps({
     searchByFirstLetters: { type: Boolean, default: false },
     /** Ключ доп. поля в объекте опции для поиска (помимо label); пусто — только label */
     searchExtraKey: { type: String, default: '' },
+    /** false — не фильтровать options локально (удалённый поиск через @search) */
+    filterLocalOptions: { type: Boolean, default: true },
     multiple: { type: Boolean, default: false },
     showCheckboxesWhenMultiple: { type: Boolean, default: false },
     multipleLabelFormat: { type: String, default: 'list', validator: (v) => ['count', 'list'].includes(v) },
@@ -216,7 +171,10 @@ const props = defineProps({
     menuMode: { type: String, default: 'compact', validator: (v) => ['compact', 'screen'].includes(v) },
 })
 
-const emit = defineEmits(['update:modelValue', 'change', 'blur', 'search'])
+const emit = defineEmits(['update:modelValue', 'change', 'blur', 'search', 'load-more'])
+
+const LOAD_MORE_THRESHOLD_PX = 48
+let loadMoreEmittedForBatch = false
 
 const generatedId = useId()
 const triggerId = computed(() => props.id || generatedId)
@@ -312,7 +270,9 @@ function getSearchExtraText(opt) {
 }
 
 const filteredOptions = computed(() => {
-    if (!props.searchable || !searchQuery.value.trim()) return normalizedOptions.value
+    if (!props.searchable || !searchQuery.value.trim() || !props.filterLocalOptions) {
+        return normalizedOptions.value
+    }
     const q = searchQuery.value.trim()
     const qLower = q.toLowerCase()
     if (props.searchByFirstLetters) {
@@ -527,7 +487,13 @@ function handleClickOutside(e) {
     const root = rootEl.value
     if (!root) return
     if (menuAnchorEl.value?.contains(e.target)) return
-    if (!root.contains(e.target)) close()
+    if (root.contains(e.target)) return
+    close()
+    // label[for=trigger]: иначе после close браузер кликнет кнопку и снова откроет меню.
+    const label = e.target instanceof Element ? e.target.closest('label') : null
+    if (label?.htmlFor && label.htmlFor === triggerId.value) {
+        e.preventDefault()
+    }
 }
 
 const listContainerRef = ref(null)
@@ -588,8 +554,18 @@ function updateVisibleRange() {
     endIndex.value = end
 }
 
+function maybeEmitLoadMore() {
+    const el = listContainerRef.value
+    if (!el || loadMoreEmittedForBatch) return
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - LOAD_MORE_THRESHOLD_PX
+    if (!nearBottom) return
+    loadMoreEmittedForBatch = true
+    emit('load-more')
+}
+
 function onListScroll() {
     updateVisibleRange()
+    maybeEmitLoadMore()
 }
 
 onMounted(() => {
@@ -601,16 +577,25 @@ onBeforeUnmount(() => {
 })
 
 watch([() => (props.virtualized ? effectiveOptionsForVirtual.value.length : filteredOptions.value.length), isOpen], () => {
-    if (props.virtualized && isOpen.value) {
-        nextTick(updateVisibleRange)
-    }
+    loadMoreEmittedForBatch = false
+    nextTick(() => {
+        if (props.virtualized && isOpen.value) {
+            updateVisibleRange()
+        }
+        if (isOpen.value) {
+            maybeEmitLoadMore()
+        }
+    })
 })
 
 watch(searchQuery, (value) => {
+    loadMoreEmittedForBatch = false
     emit('search', String(value || ''))
-    if (props.virtualized && isOpen.value && listContainerRef.value) {
+    if (isOpen.value && listContainerRef.value) {
         listContainerRef.value.scrollTop = 0
-        nextTick(updateVisibleRange)
+        if (props.virtualized) {
+            nextTick(updateVisibleRange)
+        }
     }
 })
 </script>
