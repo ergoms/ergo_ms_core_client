@@ -1,6 +1,9 @@
 /**
  * Короткий сигнал в приложении при новом уведомлении.
  * Тумблер — «Звуковой сигнал» в настройках уведомлений браузера.
+ *
+ * AudioContext создаётся и продолжается только после жеста пользователя —
+ * иначе браузер блокирует автозапуск.
  */
 
 import { BROWSER_NOTIFICATION_PREFS, readBrowserNotificationPref } from './browserNotificationPrefs.js'
@@ -16,6 +19,7 @@ const TONES = [
 let audioContext = null
 let lastPlayedAt = 0
 let unlockBound = false
+let userGestureSeen = false
 
 function soundPrefEnabled() {
   if (typeof window === 'undefined') {
@@ -32,6 +36,9 @@ function audioContextConstructor() {
 }
 
 function getOrCreateContext() {
+  if (!userGestureSeen) {
+    return null
+  }
   const Ctor = audioContextConstructor()
   if (!Ctor) {
     return null
@@ -67,6 +74,7 @@ function ensureUnlockListeners() {
   }
   unlockBound = true
   const unlock = () => {
+    userGestureSeen = true
     void resumeContext()
   }
   document.addEventListener('pointerdown', unlock, { capture: true })
@@ -108,12 +116,15 @@ export function playNotificationSound() {
   if (!soundPrefEnabled()) {
     return
   }
+  ensureUnlockListeners()
+  if (!userGestureSeen) {
+    return
+  }
   const now = Date.now()
   if (now - lastPlayedAt < SOUND_COOLDOWN_MS) {
     return
   }
   lastPlayedAt = now
-  ensureUnlockListeners()
   try {
     const ctx = getOrCreateContext()
     if (!ctx) {
