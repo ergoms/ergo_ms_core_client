@@ -5,7 +5,7 @@
         <span v-for="tab in normalizedTabs" :key="`measure-${tab.id}`" class="tab-bar__tab">
           <component :is="tab.icon" v-if="tab.icon" :size="16" class="tab-bar__icon" />
           <span class="tab-bar__text">{{ tab.name }}</span>
-          <span v-if="tab.count" class="tab-bar__badge">{{ tab.count }}</span>
+          <span v-if="tab.count" class="tab-bar__badge"><span class="tab-bar__badge-value">{{ tab.count }}</span></span>
         </span>
         <span class="tab-bar__tab tab-bar__more-trigger">
           <span class="tab-bar__text">{{ moreLabel }}</span>
@@ -20,7 +20,7 @@
         <button v-for="tab in displayedTabs" :key="tab.id" type="button" role="tab" class="tab-bar__tab" :class="{ 'tab-bar__tab--active': modelValue === tab.id }" :aria-selected="modelValue === tab.id" @click="selectTab(tab.id)">
           <component :is="tab.icon" v-if="tab.icon" :size="16" class="tab-bar__icon" />
           <span class="tab-bar__text">{{ tab.name }}</span>
-          <span v-if="tab.count" class="tab-bar__badge">{{ tab.count }}</span>
+          <span v-if="tab.count" class="tab-bar__badge"><span class="tab-bar__badge-value">{{ tab.count }}</span></span>
         </button>
 
         <DropDown v-if="overflowTabs.length" ref="moreDropdownRef" class="tab-bar__more" compact dropdown-menu-class="dropdown-menu-end" :menu-min-width="180">
@@ -35,7 +35,7 @@
               <a class="dropdown-item" href="#" role="menuitem" @click.prevent="selectTab(tab.id)">
                 <component :is="tab.icon" v-if="tab.icon" :size="16" class="tab-bar__icon" />
                 <span class="tab-bar__text">{{ tab.name }}</span>
-                <span v-if="tab.count" class="tab-bar__badge">{{ tab.count }}</span>
+                <span v-if="tab.count" class="tab-bar__badge"><span class="tab-bar__badge-value">{{ tab.count }}</span></span>
               </a>
             </li>
           </template>
@@ -378,14 +378,35 @@ watch(showScrollControls, (visible) => {
 }
 
 .tab-bar__badge {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
   background-color: var(--ui-text-muted, var(--color-secondary-text));
   color: var(--ui-surface, var(--color-primary-background));
   font-size: 0.75rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 10px;
-  min-width: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   text-align: center;
-  line-height: 1.25;
+}
+
+.tab-bar__badge-value {
+  display: block;
+  line-height: 1;
+  // Cap-height: без trim цифра сидит высоко из-за места под десендеры в em-box.
+  text-box: trim-both cap alphabetic;
+  // Запасной оптический сдвиг, если text-box ещё не поддержан.
+  transform: translateY(0.06em);
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+  .tab-bar__badge-value {
+    transform: none;
+  }
 }
 
 .tab-bar__tab--active .tab-bar__badge {
