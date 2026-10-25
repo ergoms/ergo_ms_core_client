@@ -908,6 +908,8 @@ export default defineConfig(() => ({
     include: OPTIMIZE_DEPS_INCLUDE,
     rolldownOptions: {
       plugins: [
+        // Предсборка использует тот же корень пакетов, что и обычная сборка.
+        resolveFromNpmRootPlugin(),
         {
           name: 'rolldown-stub-missing-core-imports',
           resolveId(id) {
