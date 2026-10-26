@@ -8,6 +8,7 @@ import errors from './errors.js'
 import time from './time.js'
 import routes from './routes.js'
 import devTools from './devTools.js'
+import sourceMonitor from './sourceMonitor.js'
 
 export default {
   common,
@@ -20,4 +21,5 @@ export default {
   time,
   routes,
   devTools,
+  sourceMonitor,
 }
