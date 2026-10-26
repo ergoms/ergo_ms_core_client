@@ -3,7 +3,7 @@
     <label v-if="label" :for="inputId" class="form-label mb-1">{{ label }}</label>
     <div class="search-input__wrap">
       <LucideIcon v-if="showIcon" name="Search" :size="iconSize" class="search-input__icon" icon-class="search-input__icon"/>
-      <input :id="inputId" ref="inputEl" :value="modelValue" :type="inputType" class="form-control search-input__control" :placeholder="resolvedPlaceholder" :disabled="disabled" :aria-label="ariaLabel" @input="onInput" @focus="emit('focus', $event)" @blur="emit('blur', $event)"/>
+      <input :id="inputId" ref="inputEl" :value="modelValue" :type="inputType" class="form-control search-input__control" :placeholder="resolvedPlaceholder" :disabled="disabled" :aria-label="ariaLabel" autocomplete="off" @input="onInput" @focus="emit('focus', $event)" @blur="emit('blur', $event)"/>
       <button v-if="showClearButton" type="button" class="search-input__clear" :aria-label="t('components.searchInput.clear')" :disabled="disabled" @click="clear">
         <LucideIcon name="X" :size="iconSize" aria-hidden="true" />
       </button>
@@ -65,7 +65,7 @@ const props = defineProps({
   layout: {
     type: String,
     default: 'grow',
-    validator: (value) => ['grow', 'fixed'].includes(value),
+    validator: (value) => ['grow', 'fixed', 'fill'].includes(value),
   },
 })
 
@@ -96,6 +96,12 @@ function clear() {
   emit('clear')
   inputEl.value?.focus()
 }
+
+function focus(options) {
+  inputEl.value?.focus(options)
+}
+
+defineExpose({ focus })
 </script>
 
 <style scoped lang="scss">
@@ -136,6 +142,12 @@ function clear() {
       width: 100%;
       max-width: 100%;
     }
+  }
+
+  &--layout-fill {
+    flex: none;
+    width: 100%;
+    min-width: 0;
   }
 
   &__wrap {
