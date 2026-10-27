@@ -876,6 +876,8 @@ export default defineConfig(() => ({
   },
   server: {
     port: parseInt(process.env.CLIENT_PORT, 10) || 8001,
+    // Не перескакивать на следующий порт: 8002 занят Jupyter и не входит в CORS dev-список.
+    strictPort: true,
     host: process.env.CLIENT_HOST || 'localhost',
     https: false,
     // Прокси для CLIENT_USE_RELATIVE_API=true без nginx (редко) и ручных запросов к /api на origin Vite.
