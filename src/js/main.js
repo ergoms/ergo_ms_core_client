@@ -1,5 +1,7 @@
 import '@/js/utils/logger.js'
 
+import 'medeo-font/sans.css'
+import 'medeo-font/mono.css'
 import '@/scss/styles.scss'
 
 import { initUiPreferences } from '@/js/uiPreferences.js'

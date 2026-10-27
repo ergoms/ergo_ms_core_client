@@ -73,6 +73,9 @@
     'Helvetica Neue', sans-serif;
   --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
+  /* Подключать явно: font-family: var(--font-family-medeo). */
+  --font-family-medeo: var(--font-medeo-sans);
+  --font-family-medeo-mono: var(--font-medeo-mono);
 }
 
 [data-bs-theme='dark'] {
