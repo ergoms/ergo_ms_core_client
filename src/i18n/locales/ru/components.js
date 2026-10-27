@@ -249,6 +249,11 @@ export default {
     browse: 'выберите на компьютере',
     ariaLabel: 'Прикрепить файл',
   },
+  fileCard: {
+    download: 'Загрузить',
+    remove: 'Удалить',
+    fallbackName: 'Файл',
+  },
   laneGraph: {
     modesLabel: 'Режимы схемы',
     modeOverview: 'Обзор',

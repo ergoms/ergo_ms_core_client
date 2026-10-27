@@ -249,6 +249,11 @@ export default {
     browse: 'choose on your computer',
     ariaLabel: 'Attach a file',
   },
+  fileCard: {
+    download: 'Download',
+    remove: 'Remove',
+    fallbackName: 'File',
+  },
   laneGraph: {
     modesLabel: 'Diagram modes',
     modeOverview: 'Overview',

@@ -249,6 +249,11 @@ export default {
     browse: 'sélectionnez sur l’ordinateur',
     ariaLabel: 'Joindre un fichier',
   },
+  fileCard: {
+    download: 'Télécharger',
+    remove: 'Supprimer',
+    fallbackName: 'Fichier',
+  },
   laneGraph: {
     modesLabel: 'Modes du schéma',
     modeOverview: 'Aperçu',
