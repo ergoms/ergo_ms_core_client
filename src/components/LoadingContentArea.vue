@@ -56,20 +56,12 @@ const isRefreshing = computed(() => props.loading && hasLoadedOnce.value)
     <SpinnerLoading :color="spinnerColor" :loading-text="loadingText" />
   </div>
 
-  <div
-    v-else
-    class="loading-content-area loading-content-area--content"
-    :class="{ 'loading-content-area--refreshing': isRefreshing }"
-    :style="{ minHeight }"
-  >
+  <div v-else class="loading-content-area loading-content-area--content" :class="{ 'loading-content-area--refreshing': isRefreshing }">
     <div v-if="isRefreshing" class="loading-content-area__overlay" aria-hidden="true">
       <SpinnerLoading :color="spinnerColor" :loading-text="loadingText" />
     </div>
 
-    <div
-      class="loading-content-area__slot"
-      :class="{ 'loading-content-area__slot--dimmed': isRefreshing && dimContent }"
-    >
+    <div class="loading-content-area__slot" :class="{ 'loading-content-area__slot--dimmed': isRefreshing && dimContent }">
       <slot />
     </div>
   </div>
