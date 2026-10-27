@@ -15,7 +15,7 @@
         :disabled="pending !== '' || status === 'running' || canStart === false"
         @click="$emit('start')"
       >
-        {{ pending === 'start' ? t('sourceMonitor.starting') : t('sourceMonitor.start') }}
+        {{ pending === 'start' ? startingText : startText }}
       </button>
       <button
         type="button"
@@ -23,26 +23,53 @@
         :disabled="pending !== '' || (status !== 'running' && status !== 'paused')"
         @click="$emit('stop')"
       >
-        {{ pending === 'stop' ? t('sourceMonitor.stopping') : t('sourceMonitor.stop') }}
+        {{ pending === 'stop' ? stoppingText : stopText }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 
-defineProps({
+const props = defineProps({
   status: { type: String, default: 'idle' },
   canStart: { type: Boolean, default: true },
   pending: { type: String, default: '' },
   notice: { type: String, default: '' },
   noticeOk: { default: null },
+  /** Префикс ключей i18n модуля, например vacancies_parser.monitor */
+  labelPrefix: { type: String, default: 'sourceMonitor' },
+  startLabel: { type: String, default: '' },
+  stopLabel: { type: String, default: '' },
+  startingLabel: { type: String, default: '' },
+  stoppingLabel: { type: String, default: '' },
 })
 
 defineEmits(['start', 'stop'])
 
-const { t } = useAppI18n()
+const { t, te } = useAppI18n()
+
+function label(key, override) {
+  if (override) {
+    return override
+  }
+  const full = `${props.labelPrefix}.${key}`
+  if (typeof te === 'function' && te(full)) {
+    return t(full)
+  }
+  const core = `sourceMonitor.${key}`
+  if (typeof te === 'function' && te(core)) {
+    return t(core)
+  }
+  return t(full)
+}
+
+const startText = computed(() => label('start', props.startLabel))
+const stopText = computed(() => label('stop', props.stopLabel))
+const startingText = computed(() => label('starting', props.startingLabel))
+const stoppingText = computed(() => label('stopping', props.stoppingLabel))
 </script>
 
 <style scoped>

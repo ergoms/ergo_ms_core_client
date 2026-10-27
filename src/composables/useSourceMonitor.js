@@ -17,6 +17,7 @@ const CONFIRM_MS = 45000
  * @param {string} options.controlUrl
  * @param {string} [options.historyUrl]
  * @param {string} options.topic — тема RealtimeHub модуля
+ * @param {string} [options.i18nPrefix] — префикс ключей модуля (…monitor.start)
  * @param {string} [options.errorContext]
  * @param {(error: unknown) => string} [options.mapLoadError]
  * @param {string[]} [options.extraActions] — действия кроме start/stop (например snapshot)
@@ -27,12 +28,25 @@ export function useSourceMonitor(options) {
     controlUrl,
     historyUrl = '',
     topic,
+    i18nPrefix = 'sourceMonitor',
     errorContext = 'source_monitor',
     mapLoadError = null,
     extraActions = [],
   } = options
 
-  const { t, locale } = useAppI18n()
+  const { t, te, locale } = useAppI18n()
+
+  function monitorText(key) {
+    const full = `${i18nPrefix}.${key}`
+    if (typeof te === 'function' && te(full)) {
+      return t(full)
+    }
+    const core = `sourceMonitor.${key}`
+    if (typeof te === 'function' && te(core)) {
+      return t(core)
+    }
+    return t(full)
+  }
   const loading = ref(true)
   const loadError = ref('')
   const busyIds = ref({})
@@ -149,12 +163,12 @@ export function useSourceMonitor(options) {
       return
     }
     busyIds.value = { ...busyIds.value, [sourceId]: action }
-    const pendingKey = action === 'stop'
-      ? 'sourceMonitor.stopping'
+    const pendingText = action === 'stop'
+      ? monitorText('stopping')
       : action === 'start'
-        ? 'sourceMonitor.starting'
-        : 'sourceMonitor.working'
-    putNotice(sourceId, t(pendingKey), null)
+        ? monitorText('starting')
+        : monitorText('working')
+    putNotice(sourceId, pendingText, null)
     clearConfirm(sourceId)
     confirmTimers[sourceId] = window.setTimeout(() => {
       finishPending(sourceId)
@@ -165,7 +179,7 @@ export function useSourceMonitor(options) {
         action,
       })
       const ok = response?.data?.ok !== false
-      const message = response?.data?.message || tGlobal('sourceMonitor.controlFailed')
+      const message = response?.data?.message || monitorText('controlFailed')
       putNotice(sourceId, message, ok)
       if (!ok) {
         finishPending(sourceId)
@@ -173,7 +187,7 @@ export function useSourceMonitor(options) {
       loadSnapshot().catch((error) => reportError(errorContext, error))
     } catch (error) {
       reportError(`${errorContext}.control`, error)
-      putNotice(sourceId, tGlobal('sourceMonitor.controlFailed'), false)
+      putNotice(sourceId, monitorText('controlFailed'), false)
       finishPending(sourceId)
     }
   }
@@ -201,14 +215,16 @@ export function useSourceMonitor(options) {
   onMounted(async () => {
     const client = getRealtimeClient()
     client.ensureConnected()
+    // Событие слушаем на всякий случай, но POST /realtime/subscriptions/
+    // на оболочке сайта часто отвечает 403: тема модуля там не зарегистрирована.
+    // Карточки обновляет опрос. subscribe здесь не вызываем — иначе apiClient
+    // оболочки (общий чанк) пишет API Error в консоль.
+    void topic
     offEvent = client.on(EVENT, (_event, envelope) => {
       applySnapshot(envelope?.payload)
       loading.value = false
       lastPushAt = Date.now()
     })
-    if (topic) {
-      client.subscribe(topic).catch(() => {})
-    }
     await refresh()
     timer = window.setInterval(() => {
       if (lastPushAt && Date.now() - lastPushAt < FALLBACK_MS) {
@@ -226,9 +242,6 @@ export function useSourceMonitor(options) {
       clearConfirm(sourceId)
     }
     offEvent?.()
-    if (topic) {
-      getRealtimeClient().unsubscribe(topic).catch(() => {})
-    }
   })
 
   return {

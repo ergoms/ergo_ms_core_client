@@ -11,11 +11,22 @@ export const realtimeApi = {
   },
 
   subscribe(topic) {
-    return apiClient.post('realtime/subscriptions/', { action: 'subscribe', topic })
+    // Тема модуля может быть ещё не зарегистрирована на этом API — не шумим в консоль.
+    return apiClient.post(
+      'realtime/subscriptions/',
+      { action: 'subscribe', topic },
+      true,
+      { quietStatuses: [403, 404] },
+    )
   },
 
   unsubscribe(topic) {
-    return apiClient.post('realtime/subscriptions/', { action: 'unsubscribe', topic })
+    return apiClient.post(
+      'realtime/subscriptions/',
+      { action: 'unsubscribe', topic },
+      true,
+      { quietStatuses: [403, 404] },
+    )
   },
 }
 

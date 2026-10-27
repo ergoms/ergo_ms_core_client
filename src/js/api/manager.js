@@ -338,8 +338,8 @@ class ApiClient {
     return this._request('GET', endpoint, query, needToken, requestConfig, options)
   }
 
-  async post(endpoint, data = {}, needToken = true) {
-    return this._request('POST', endpoint, data, needToken)
+  async post(endpoint, data = {}, needToken = true, options = {}) {
+    return this._request('POST', endpoint, data, needToken, {}, options)
   }
 
   async put(endpoint, data = {}, needToken = true) {
