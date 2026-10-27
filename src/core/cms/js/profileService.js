@@ -119,6 +119,7 @@ export const profileService = {
       // Профиль пользователя
       phone: profile.phone || '',
       birth_date: profile.birth_date || '',
+      gender: profile.gender || '',
       bio: profile.bio || '',
       language: profile.language || getDefaultLocale(),
       timezone: profile.timezone || 'Europe/Moscow',

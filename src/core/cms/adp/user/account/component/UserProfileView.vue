@@ -15,6 +15,7 @@ const FIELD_LABEL_KEYS = {
   middle_name: 'settings.profile.middleName',
   phone: 'settings.profile.phone',
   birth_date: 'settings.profile.birthDate',
+  gender: 'settings.profile.gender',
   bio: 'settings.profile.bio',
 }
 
@@ -58,6 +59,14 @@ function displayValue(field) {
   }
   if (field === 'birth_date') {
     return formatBirthDate(value)
+  }
+  if (field === 'gender') {
+    if (value === 'male') {
+      return t('settings.profile.genderMale')
+    }
+    if (value === 'female') {
+      return t('settings.profile.genderFemale')
+    }
   }
   return String(value).trim()
 }

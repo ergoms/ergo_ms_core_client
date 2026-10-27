@@ -3,8 +3,8 @@ import { profileService } from '@/core/cms/js/profileService.js'
 export const USER_PROFILE_MAIN_FIELDS = ['email', 'last_name', 'first_name', 'middle_name']
 export const USER_PROFILE_FIO_FIELDS = ['last_name', 'first_name', 'middle_name']
 export const USER_PROFILE_IDENTITY_FIELDS = [...USER_PROFILE_MAIN_FIELDS, 'phone']
-export const USER_PROFILE_ADDITIONAL_FIELDS = ['phone', 'birth_date', 'bio']
-export const USER_PROFILE_SELF_EDITABLE_ADDITIONAL_FIELDS = ['birth_date', 'bio']
+export const USER_PROFILE_ADDITIONAL_FIELDS = ['phone', 'birth_date', 'gender', 'bio']
+export const USER_PROFILE_SELF_EDITABLE_ADDITIONAL_FIELDS = ['birth_date', 'gender', 'bio']
 export const USER_PROFILE_ALL_FIELDS = [
   ...USER_PROFILE_MAIN_FIELDS,
   ...USER_PROFILE_ADDITIONAL_FIELDS,
@@ -28,6 +28,7 @@ export function mapUserProfileToFormData(source) {
     middle_name: normalizeEmptyString(source.middle_name ?? source.middleName),
     phone: normalizeEmptyString(profile.phone ?? source.phone),
     birth_date: profile.birth_date || source.birth_date || '',
+    gender: profile.gender || source.gender || '',
     bio: profile.bio ?? source.bio ?? '',
   }
 }
