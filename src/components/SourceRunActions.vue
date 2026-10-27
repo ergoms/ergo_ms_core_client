@@ -39,7 +39,7 @@ const props = defineProps({
   pending: { type: String, default: '' },
   notice: { type: String, default: '' },
   noticeOk: { default: null },
-  /** Префикс ключей i18n модуля, например vacancies_parser.monitor */
+  /** Префикс ключей i18n модуля, например <name>.monitor */
   labelPrefix: { type: String, default: 'sourceMonitor' },
   startLabel: { type: String, default: '' },
   stopLabel: { type: String, default: '' },
