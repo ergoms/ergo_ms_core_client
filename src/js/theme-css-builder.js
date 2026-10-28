@@ -201,6 +201,26 @@ ${prefix}a:hover {
   filter: brightness(0.85);
 }
 `
+    if (colors.accentText) {
+      cssRules += `
+${prefix}.btn-primary,
+${prefix}.btn-primary:hover,
+${prefix}.btn-primary:focus,
+${prefix}.btn-primary:focus-visible,
+${prefix}.btn-primary:active,
+${prefix}.btn-primary.active,
+${prefix}.btn-primary:disabled,
+${prefix}.btn-outline-primary:hover,
+${prefix}.btn-outline-primary:active,
+${prefix}.btn-outline-primary.active {
+  --bs-btn-color: ${colors.accentText} !important;
+  --bs-btn-hover-color: ${colors.accentText} !important;
+  --bs-btn-active-color: ${colors.accentText} !important;
+  --bs-btn-disabled-color: ${colors.accentText} !important;
+  color: ${colors.accentText} !important;
+}
+`
+    }
   }
 
   return cssRules
