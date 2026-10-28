@@ -1,6 +1,6 @@
 /**
  * ESLint без --fix: ядро + clients модулей (кроме DISABLED_MODULES).
- * Запуск: node scripts/run-eslint-check.js [--a11y]
+ * Запуск: node scripts/run-eslint-check.js [--a11y] [--report=json]
  * cwd для eslint — корень репозитория (basePath в eslint.config.js).
  */
 
@@ -20,6 +20,7 @@ const clientRoot = path.resolve(__dirname, '..')
 const projectRoot = clientProjectRoot
 const modulesRoot = path.join(projectRoot, 'modules')
 const a11y = process.argv.includes('--a11y')
+const reportJson = process.argv.includes('--report=json')
 const LINTABLE_EXT = new Set(['.js', '.mjs', '.jsx', '.vue'])
 
 function hasLintableFiles(dir) {
@@ -75,17 +76,30 @@ if (a11y) {
 } else {
   args.push('--no-fix')
 }
+if (reportJson) {
+  args.push('-f', 'json')
+}
 args.push(...targets)
 
 const result = spawnSync(process.execPath, args, {
   cwd: projectRoot,
-  stdio: 'inherit',
+  stdio: reportJson ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   env: process.env,
+  maxBuffer: 64 * 1024 * 1024,
 })
 
 if (result.error) {
   console.error(result.error.message)
   process.exit(1)
+}
+
+if (reportJson) {
+  if (result.stdout?.length) {
+    process.stdout.write(result.stdout)
+  }
+  if (result.stderr?.length) {
+    process.stderr.write(result.stderr)
+  }
 }
 
 process.exit(result.status ?? 1)
