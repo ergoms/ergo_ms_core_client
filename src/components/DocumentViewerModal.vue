@@ -11,10 +11,16 @@
     body-class="p-0"
     @close="emit('close')"
   >
+    <DocumentViewerLegend
+      v-if="visible && highlight"
+      :current-label="legendCurrent || t('components.documentViewer.legendCurrent')"
+      :other-label="legendOther || t('components.documentViewer.legendOther')"
+    />
     <DocumentViewer
       v-if="visible"
       :src="src"
       :filename="filename"
+      :highlight="highlight"
     />
   </ModalCenter>
 </template>
@@ -23,6 +29,7 @@
 import { defineAsyncComponent } from 'vue'
 import ModalCenter from '@/components/ModalCenter.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
+import DocumentViewerLegend from '@/components/DocumentViewerLegend.vue'
 
 const DocumentViewer = defineAsyncComponent(() => import('@/components/DocumentViewer.vue'))
 
@@ -40,6 +47,18 @@ defineProps({
     default: '',
   },
   title: {
+    type: String,
+    default: '',
+  },
+  highlight: {
+    type: String,
+    default: '',
+  },
+  legendCurrent: {
+    type: String,
+    default: '',
+  },
+  legendOther: {
     type: String,
     default: '',
   },

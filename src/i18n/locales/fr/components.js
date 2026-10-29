@@ -97,6 +97,8 @@ export default {
     searchCount: '{current} sur {total}',
     searchPrev: 'Occurrence précédente',
     searchNext: 'Occurrence suivante',
+    legendCurrent: 'Orange — le passage sur lequel le fichier s’est ouvert',
+    legendOther: 'Jaune — les autres passages identiques',
   },
   sideDrawer: {
     close: 'Fermer',

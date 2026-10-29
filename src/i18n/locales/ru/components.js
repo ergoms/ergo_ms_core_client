@@ -97,6 +97,8 @@ export default {
     searchCount: '{current} из {total}',
     searchPrev: 'Предыдущее совпадение',
     searchNext: 'Следующее совпадение',
+    legendCurrent: 'Оранжевый — фрагмент, к которому открыли файл',
+    legendOther: 'Жёлтый — остальные такие же фрагменты',
   },
   sideDrawer: {
     close: 'Закрыть',

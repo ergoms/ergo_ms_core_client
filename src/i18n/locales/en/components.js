@@ -97,6 +97,8 @@ export default {
     searchCount: '{current} of {total}',
     searchPrev: 'Previous match',
     searchNext: 'Next match',
+    legendCurrent: 'Orange — the passage the file was opened on',
+    legendOther: 'Yellow — the other matching passages',
   },
   sideDrawer: {
     close: 'Close',

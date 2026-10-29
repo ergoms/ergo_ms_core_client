@@ -133,6 +133,7 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  highlight: { type: String, default: '' },
 })
 
 const { t } = useAppI18n()
@@ -322,7 +323,8 @@ function runSearch(index) {
   const pdf = kind.value === DOCUMENT_PREVIEW_KIND.PDF
   const docx = kind.value === DOCUMENT_PREVIEW_KIND.DOCX
   const host = pdf ? stageRef.value?.querySelector('.document-viewer__pdf') : docxHost.value
-  const applied = applyDocumentSearch(pdf || docx ? host : null, searchQuery.value, index)
+  const loose = Boolean(props.highlight) && searchQuery.value === props.highlight
+  const applied = applyDocumentSearch(pdf || docx ? host : null, searchQuery.value, index, { loose })
   searchTotal.value = applied.total
   searchIndex.value = applied.index
   if (applied.ranges[applied.index]) scrollSearchRange(applied.ranges[applied.index])
@@ -477,7 +479,7 @@ async function loadDocument() {
   }
 }
 
-watch(() => [props.src, props.filename], loadDocument, { immediate: true })
+watch(() => [props.src, props.filename, props.highlight], () => { searchQuery.value = props.highlight || ''; loadDocument() }, { immediate: true })
 watch(searchQuery, () => {
   window.clearTimeout(searchTimer)
   searchTimer = window.setTimeout(() => runSearch(0), 200)
