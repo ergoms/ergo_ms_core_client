@@ -7,9 +7,17 @@
  *
  * JBIG2 и JPEG2000 pdf.js 5 берёт из wasm. ``?url`` даёт хеш в имени файла,
  * а библиотека дописывает к каталогу фиксированные имена, поэтому каталог — /pdfjs/wasm/.
+ * Воркер живёт на blob:, и import('/pdfjs/...') оттуда не резолвится: запасной
+ * JS-декодер нужен абсолютным URL того же origin.
  */
 
-const PDFJS_WASM_URL = `${import.meta.env.BASE_URL}pdfjs/wasm/`
+function pdfjsWasmBaseUrl() {
+  const relative = `${import.meta.env.BASE_URL}pdfjs/wasm/`
+  if (typeof window === 'undefined' || !window.location?.href) {
+    return relative
+  }
+  return new URL(relative, window.location.href).href
+}
 
 let pdfjsLib = null
 let workerBlobSrc = ''
@@ -65,7 +73,7 @@ export async function loadPdfjs() {
 export async function openPdfDocument(data) {
   const pdfjs = await loadPdfjs()
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
-  return pdfjs.getDocument({ data: bytes, wasmUrl: PDFJS_WASM_URL }).promise
+  return pdfjs.getDocument({ data: bytes, wasmUrl: pdfjsWasmBaseUrl() }).promise
 }
 
 export function pdfPageViewport(page, { scale = 1, rotation = 0 } = {}) {
