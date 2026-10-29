@@ -1,3 +1,14 @@
+/* Холст замера шрифта pdf.js вставляется в document.body.
+   Без правила он остаётся чёрным прямоугольником 300×150. */
+.hiddenCanvasElement {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .document-viewer__text {
   position: absolute;
   inset: 0;

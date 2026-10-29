@@ -198,11 +198,38 @@ export function cancelPdfPageRenders(options = {}) {
   }
 }
 
+const activeTextLayers = new Set()
+
+function releasePdfTextMeasureCanvas() {
+  const cleanup = pdfjsLib?.TextLayer?.cleanup
+  if (!cleanup) {
+    return
+  }
+  try {
+    cleanup.call(pdfjsLib.TextLayer)
+  } catch {
+    // слой ещё рисуется: cleanup сам выходит, пока есть незавершённые слои
+  }
+}
+
+function cancelActiveTextLayers() {
+  for (const layer of [...activeTextLayers]) {
+    try {
+      layer.cancel()
+    } catch {
+      // слой уже завершён или отменён
+    }
+  }
+}
+
 export function clearPdfPageCache() {
   cacheEpoch += 1
   cancelPdfPageRenders()
   pageCache.clear()
   inflightBitmaps.clear()
+  cancelActiveTextLayers()
+  // cancel снимает слой с учёта в микрозадаче promise, раньше этого cleanup.
+  queueMicrotask(releasePdfTextMeasureCanvas)
 }
 
 const textLayerTasks = new WeakMap()
@@ -253,6 +280,7 @@ export async function renderPdfTextLayer(page, container, scale, options = {}) {
     viewport,
   })
   textLayerTasks.set(container, layer)
+  activeTextLayers.add(layer)
   try {
     await layer.render()
   } catch (error) {
@@ -260,6 +288,10 @@ export async function renderPdfTextLayer(page, container, scale, options = {}) {
       return null
     }
     throw error
+  } finally {
+    activeTextLayers.delete(layer)
+    // Библиотека снимает слой с учёта в finally своего promise, раньше этого продолжения.
+    queueMicrotask(releasePdfTextMeasureCanvas)
   }
   if (textGeneration.get(container) !== generation) {
     return null
