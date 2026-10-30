@@ -6,7 +6,8 @@ import { tGlobal } from '@/i18n/index.js'
 import { getRealtimeClient } from '@/js/realtime/RealtimeClient.js'
 
 const EVENT = 'parser_monitor_snapshot'
-const FALLBACK_MS = 20000
+const FAST_MS = 2000
+const SLOW_MS = 5000
 const CONFIRM_MS = 45000
 
 /**
@@ -55,6 +56,7 @@ export function useSourceMonitor(options) {
   const history = ref({})
   const range = ref('1h')
   let timer = 0
+  let stopped = false
   let offEvent = null
   let confirmTimers = {}
   let lastPushAt = 0
@@ -62,12 +64,21 @@ export function useSourceMonitor(options) {
   const sources = computed(() => snapshot.value?.sources || [])
   const language = computed(() => (typeof locale === 'string' ? locale : locale?.value) || 'ru')
 
+  function snapshotReady(payload) {
+    const rows = payload?.sources
+    if (!Array.isArray(rows) || !rows.length) {
+      return false
+    }
+    return rows.some((row) => row?.rates && Object.keys(row.rates).length > 0)
+  }
+
   function applySnapshot(payload) {
-    if (!payload || !Array.isArray(payload.sources)) {
-      return
+    if (!snapshotReady(payload)) {
+      return false
     }
     snapshot.value = payload
     resolvePendingFromSnapshot(payload)
+    return true
   }
 
   function clearConfirm(sourceId) {
@@ -114,7 +125,7 @@ export function useSourceMonitor(options) {
 
   async function loadSnapshot() {
     const response = await apiClient.get(snapshotUrl)
-    applySnapshot(response?.data)
+    return applySnapshot(response?.data)
   }
 
   async function loadHistory(sourceId) {
@@ -143,15 +154,45 @@ export function useSourceMonitor(options) {
     loadError.value = tGlobal('sourceMonitor.loadFailed')
   }
 
+  function needsFastPoll() {
+    if (!snapshotReady(snapshot.value)) {
+      return true
+    }
+    return Boolean(snapshot.value?.stale)
+  }
+
   async function refresh() {
     try {
-      await loadSnapshot()
-      loadError.value = ''
+      if (await loadSnapshot()) {
+        loadError.value = ''
+        loading.value = false
+      }
     } catch (error) {
       reportError(errorContext, error)
-    } finally {
       loading.value = false
     }
+  }
+
+  function armPoll() {
+    if (stopped) {
+      return
+    }
+    const wait = needsFastPoll() ? FAST_MS : SLOW_MS
+    timer = window.setTimeout(() => {
+      if (stopped) {
+        return
+      }
+      const again = () => {
+        if (!stopped) {
+          armPoll()
+        }
+      }
+      if (lastPushAt && Date.now() - lastPushAt < FAST_MS) {
+        again()
+        return
+      }
+      refresh().finally(again)
+    }, wait)
   }
 
   function putNotice(sourceId, text, ok) {
@@ -221,22 +262,19 @@ export function useSourceMonitor(options) {
     // оболочки (общий чанк) пишет API Error в консоль.
     void topic
     offEvent = client.on(EVENT, (_event, envelope) => {
-      applySnapshot(envelope?.payload)
-      loading.value = false
-      lastPushAt = Date.now()
+      if (applySnapshot(envelope?.payload)) {
+        loading.value = false
+        lastPushAt = Date.now()
+      }
     })
     await refresh()
-    timer = window.setInterval(() => {
-      if (lastPushAt && Date.now() - lastPushAt < FALLBACK_MS) {
-        return
-      }
-      refresh()
-    }, FALLBACK_MS)
+    armPoll()
   })
 
   onUnmounted(() => {
+    stopped = true
     if (timer) {
-      window.clearInterval(timer)
+      window.clearTimeout(timer)
     }
     for (const sourceId of Object.keys(confirmTimers)) {
       clearConfirm(sourceId)
