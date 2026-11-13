@@ -38,13 +38,13 @@
         <SelectBox :model-value="form.icon || null" :options="lucideIconOptions" searchable :search-placeholder="t('admin.menu.searchIcons')" :include-all-option="true" :all-label="t('admin.menu.noIcon')" :virtualized="true" :item-height="36" :overscan="8" @update:model-value="v => form.icon = v ?? ''">
           <template #option="{ value, label }">
             <span class="d-inline-flex align-items-center gap-2">
-              <component v-if="lucideIcons[value]" :is="lucideIcons[value]" :size="18"/>
+              <LucideIcon v-if="value" :name="value" :size="18"/>
               <span>{{ label }}</span>
             </span>
           </template>
           <template #selected="{ label }">
             <span class="d-inline-flex align-items-center gap-2">
-              <component v-if="iconComponent" :is="iconComponent" :size="20"/>
+              <LucideIcon v-if="form.icon" :name="form.icon" :size="20"/>
               <span>{{ label }}</span>
             </span>
           </template>
@@ -107,28 +107,22 @@
 
 <script setup>
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { ref, computed, watch, shallowRef, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { getAvailableRouteOptions } from '@/modules/index.js'
-import {
-  getLucideIconAsync,
-  getLucideIconNames,
-  preloadLucideIcons,
-} from '@/js/lucideIconLoader.js'
+import { getLucideIconNames } from '@/js/lucideIconLoader.js'
+import LucideIcon from '@/components/LucideIcon.vue'
 import ModalCenter from '@/components/ModalCenter.vue'
 import SelectBox from '@/components/SelectBox.vue'
 
 const { t } = useAppI18n()
 
-const lucideIcons = shallowRef({})
 const lucideIconOptions = ref([])
 
 onMounted(async () => {
-  const [module, names, opts] = await Promise.all([
-    preloadLucideIcons(),
+  const [names, opts] = await Promise.all([
     getLucideIconNames(),
     getAvailableRouteOptions(),
   ])
-  lucideIcons.value = module
   lucideIconOptions.value = names.map((name) => ({ id: name, name }))
   routeOptions.value = opts
 })
@@ -229,12 +223,6 @@ const roleGroupSelectOptions = computed(() =>
     name: `${group.name} (${group.parent_role_name})`,
   })),
 )
-
-const iconComponent = shallowRef(null)
-
-watch(() => form.value.icon, async (iconName) => {
-  iconComponent.value = iconName ? await getLucideIconAsync(iconName) : null
-}, { immediate: true })
 
 const isFormValid = computed(() => {
   if (!form.value.name) return false
