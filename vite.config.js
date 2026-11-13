@@ -325,6 +325,23 @@ function loadStandaloneModuleChunks(envValues) {
 
 const STANDALONE_MODULE_CHUNKS = loadStandaloneModuleChunks(runtimeEnv)
 
+/**
+ * Глифы, которые меню и статический хром реально рисуют.
+ * Список пишет generate-lucide-icon-map.js до vite build.
+ * Остальные ~2000 файлов Lucide остаются точечными чанками.
+ */
+function loadLucideMenuIconFiles() {
+  const file = path.resolve(__dirname, 'src/js/lucideMenuIconFiles.generated.json')
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return new Set(Array.isArray(parsed) ? parsed.filter((name) => typeof name === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+const LUCIDE_MENU_ICON_FILES = loadLucideMenuIconFiles()
+
 function resolveManualChunk(id) {
   const normalizedId = id.replace(/\\/g, '/')
 
@@ -412,8 +429,8 @@ function resolveManualChunk(id) {
   ) {
     return 'vendor_datepicker'
   }
-  // lucide: не форсируем один vendor_lucide — иначе barrel+все named icons
-  // склеиваются в ~900KB; menu грузит icons/*.mjs точечно через lucideIconLoader.
+  // Полный набор Lucide (~1.5 МБ) в один чанк не кладём: меню его не рисует.
+  // Используемые глифы собирает группа lucide_menu, остальные остаются точечными.
   if (normalizedId.includes('axios')) {
     return 'vendor_axios'
   }
@@ -814,6 +831,19 @@ export default defineConfig(() => ({
         codeSplitting: {
           includeDependenciesRecursively: false,
           groups: [
+            {
+              // Один запрос вместо файла на каждый пункт меню. Редкие глифы сюда не входят.
+              name: 'lucide_menu',
+              priority: 5,
+              test: (id) => {
+                if (LUCIDE_MENU_ICON_FILES.size === 0) {
+                  return false
+                }
+                const normalized = id.replace(/\\/g, '/')
+                const match = normalized.match(/\/@lucide\/vue\/dist\/esm\/icons\/([^/]+)\.mjs$/)
+                return Boolean(match && match[1] !== 'index' && LUCIDE_MENU_ICON_FILES.has(match[1]))
+              },
+            },
             {
               test: (id) => resolveManualChunk(id) === 'vendor_vue',
               name: 'vendor_vue',

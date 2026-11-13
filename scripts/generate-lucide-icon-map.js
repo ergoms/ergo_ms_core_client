@@ -56,6 +56,8 @@ function buildMap(barrelSource) {
   return map
 }
 
+const menuFilesOutputPath = path.join(clientRoot, 'src/js/lucideMenuIconFiles.generated.json')
+
 const barrelPath = resolveLucideBarrel()
 const map = buildMap(fs.readFileSync(barrelPath, 'utf8'))
 const keys = Object.keys(map).sort()
@@ -83,6 +85,7 @@ if (fs.existsSync(outputPath) && fs.readFileSync(outputPath, 'utf8') === content
 }
 
 writeCoreIconLoaders(map)
+writeMenuIconFiles(map)
 
 function collectShellIconNames(map) {
   const files = [path.join(clientRoot, 'src/config/coreIconNames.js')]
@@ -126,4 +129,96 @@ function writeCoreIconLoaders(iconMap) {
   }
   fs.writeFileSync(coreOutputPath, body, 'utf8')
   console.log(`[OK] lucideCoreIcons.generated.js: ${names.length} icons`)
+}
+
+/**
+ * Имена, которые меню, мост и статический хром реально рисуют.
+ * Сборка кладёт их файлы в один чанк, чтобы боковое меню не открывало
+ * отдельный HTTP-запрос на каждый глиф. Редкие имена остаются в glob.
+ */
+function collectReferencedIconFiles(iconMap) {
+  const roots = [
+    path.join(clientRoot, 'src'),
+    path.resolve(clientRoot, '../api/src'),
+    path.resolve(clientRoot, '../../modules'),
+  ]
+  const skipDirs = new Set(['node_modules', 'dist', '.git', '__pycache__', 'virtual_env', 'coverage'])
+  const chunks = []
+
+  function walk(dir) {
+    if (!fs.existsSync(dir)) {
+      return
+    }
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skipDirs.has(entry.name)) {
+        continue
+      }
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(abs)
+        continue
+      }
+      if (!/\.(vue|js|mjs|ts|py|yml|yaml)$/.test(entry.name)) {
+        continue
+      }
+      if (entry.name.includes('.generated.')) {
+        continue
+      }
+      const size = fs.statSync(abs).size
+      if (size > 1_500_000) {
+        continue
+      }
+      chunks.push(fs.readFileSync(abs, 'utf8'))
+    }
+  }
+
+  for (const root of roots) {
+    walk(root)
+  }
+
+  const source = chunks.join('\n')
+  const files = new Set()
+
+  function remember(rawName) {
+    if (!rawName) {
+      return
+    }
+    let name = rawName.trim()
+    if (!name || name.endsWith('Icon') || name.startsWith('Lucide')) {
+      return
+    }
+    if (name.includes('-') || name.includes('_')) {
+      name = name
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join('')
+    }
+    const file = iconMap[name]
+    if (file) {
+      files.add(file)
+    }
+  }
+
+  for (const match of source.matchAll(/(?:icon|iconName|icon_name)\s*[:=]\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]/g)) {
+    remember(match[1])
+  }
+  for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]@lucide\/vue['"]/g)) {
+    for (const part of match[1].split(',')) {
+      remember(part.trim().split(/\s+as\s+/)[0])
+    }
+  }
+
+  return [...files].sort()
+}
+
+function writeMenuIconFiles(iconMap) {
+  const files = collectReferencedIconFiles(iconMap)
+  const content = `${JSON.stringify(files, null, 2)}\n`
+  if (fs.existsSync(menuFilesOutputPath) && fs.readFileSync(menuFilesOutputPath, 'utf8') === content) {
+    console.log(`[SKIP] lucideMenuIconFiles.generated.json: ${files.length} files, содержимое не изменилось`)
+    return
+  }
+  fs.writeFileSync(menuFilesOutputPath, content, 'utf8')
+  console.log(`[OK] lucideMenuIconFiles.generated.json: ${files.length} files`)
 }
