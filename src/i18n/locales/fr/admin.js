@@ -552,6 +552,8 @@
     edit: 'Modifier le menu',
     pageSettings: 'Paramètres de la page',
     addItem: 'Ajouter un élément',
+    addChildItem: 'Ajouter un élément',
+    addChildItemAria: 'Ajouter un élément enfant',
     addSeparator: 'Ajouter un séparateur',
     unsavedOrderTitle: 'Modifications d’ordre non enregistrées',
     unsavedOrderDesc: 'Enregistrez ou ignorez les modifications d’ordre des éléments du menu.',

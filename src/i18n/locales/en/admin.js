@@ -552,6 +552,8 @@
     edit: 'Edit menu',
     pageSettings: 'Page settings',
     addItem: 'Add item',
+    addChildItem: 'Add item',
+    addChildItemAria: 'Add child item',
     addSeparator: 'Add separator',
     unsavedOrderTitle: 'Unsaved order changes',
     unsavedOrderDesc: 'Save or discard menu item order changes.',

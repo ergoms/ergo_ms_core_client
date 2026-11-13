@@ -66,33 +66,13 @@
 
       <div class="mb-3">
         <label class="form-label">{{ t('admin.menu.allowedRoles') }}</label>
-        <SelectBox
-          v-model="form.allowed_roles"
-          :options="roleSelectOptions"
-          value-key="id"
-          label-key="name"
-          :include-all-option="false"
-          multiple
-          show-checkboxes-when-multiple
-          multiple-label-format="count"
-          cast-to-number
-        />
+        <SelectBox v-model="form.allowed_roles" :options="roleSelectOptions" value-key="id" label-key="name" :include-all-option="false" multiple show-checkboxes-when-multiple multiple-label-format="count" cast-to-number/>
         <div class="form-text">{{ t('admin.menu.rolesHelpAlt') }}</div>
       </div>
 
       <div class="mb-3">
         <label class="form-label">{{ t('admin.menu.allowedRoleGroups') }}</label>
-        <SelectBox
-          v-model="form.allowed_role_groups"
-          :options="roleGroupSelectOptions"
-          value-key="id"
-          label-key="name"
-          :include-all-option="false"
-          multiple
-          show-checkboxes-when-multiple
-          multiple-label-format="count"
-          cast-to-number
-        />
+        <SelectBox v-model="form.allowed_role_groups" :options="roleGroupSelectOptions" value-key="id" label-key="name" :include-all-option="false" multiple show-checkboxes-when-multiple multiple-label-format="count" cast-to-number/>
       </div>
     </form>
 
@@ -138,6 +118,10 @@ const props = defineProps({
     type: Object,
     default: null
   },
+  /** Родитель нового пункта. В редактировании не используется. */
+  initialParent: {
+    default: null,
+  },
   parentOptions: {
     type: Array,
     default: () => []
@@ -173,7 +157,8 @@ const form = ref({
   allowed_role_groups: []
 })
 
-watch(() => props.item, (newItem) => {
+watch(() => [props.item, props.initialParent], () => {
+  const newItem = props.item
   if (newItem) {
     form.value = {
       id: newItem.id,
@@ -197,7 +182,7 @@ watch(() => props.item, (newItem) => {
       item_type: 'route',
       page: '',
       external_url: '',
-      parent: null,
+      parent: props.initialParent ?? null,
       order: 0,
       is_active: true,
       allowed_roles: [],

@@ -80,6 +80,7 @@ if (instance) {
   }
 }
 let requestId = 0
+let startToken = 0
 let attached = null
 let viewObserver = null
 
@@ -119,10 +120,14 @@ function start(trigger) {
   if (!trigger) {
     return
   }
+  const token = ++startToken
   animationName.value = typeof trigger === 'string' ? trigger : (props.animation || 'default')
   variant.value = 'initial'
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
+      if (token !== startToken) {
+        return
+      }
       variant.value = 'animate'
     })
   } else {
@@ -131,6 +136,7 @@ function start(trigger) {
 }
 
 function stop() {
+  startToken += 1
   if (props.persistOnAnimateEnd) {
     return
   }
@@ -263,6 +269,9 @@ watch(
     }
     instance.provides[key] = motionContext
     MotionIcon.value = component
+    if (props.animate) {
+      start(props.animate)
+    }
   },
   { immediate: true },
 )

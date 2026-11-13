@@ -1,41 +1,24 @@
 <template>
   <div class="menu-row-wrapper" :class="{ 'menu-row-wrapper--nested': level > 0, 'menu-row-wrapper--dragging': isDragging }">
-    <!-- Основной элемент -->
-    <div 
-      class="menu-row" 
-      :class="{ 
-        'menu-row--nested': level > 0,
-        'menu-row--expanded': isExpanded && hasChildren,
-        'menu-row--inactive': !item.is_active
-      }"
-    >
-      <!-- Drag Handle -->
+    <div class="menu-row" :class="{ 'menu-row--nested': level > 0, 'menu-row--expanded': isExpanded && hasChildren, 'menu-row--inactive': !item.is_active }">
       <div v-handle class="menu-row__handle">
         <GripVertical :size="16" class="text-muted" />
       </div>
       
-      <!-- Иконка разворачивания -->
       <div v-if="hasChildren" class="menu-row__expand" @click="toggleExpand">
-        <ChevronRight 
-          :size="16" 
-          class="expand-icon"
-          :class="{ 'expand-icon--rotated': isExpanded }"
-        />
+        <ChevronRight :size="16" class="expand-icon" :class="{ 'expand-icon--rotated': isExpanded }"/>
       </div>
       
-      <!-- Тип элемента -->
       <div class="menu-row__type">
         <span class="badge" :class="itemTypeBadgeClass">
           {{ itemTypeLabel }}
         </span>
       </div>
       
-      <!-- Иконка элемента -->
       <div v-if="item.icon" class="menu-row__icon">
         <LucideIcon :name="item.icon" :size="18" icon-class="text-muted" />
       </div>
       
-      <!-- Название -->
       <div class="menu-row__name">
         {{ item.name }}
         <small v-if="item.route_name" class="text-muted ms-2">
@@ -46,88 +29,30 @@
         </small>
       </div>
       
-      <!-- Действия -->
-      <div class="menu-row__actions">
-        <button
-          type="button"
-          class="menu-row__visibility-btn"
-          :class="{ 'menu-row__visibility-btn--hidden': !item.is_active }"
-          @click.stop="toggleVisibility"
-          :title="item.is_active ? t('admin.menu.hideItem') : t('admin.menu.showItem')"
-          :aria-label="item.is_active ? t('admin.menu.hideItem') : t('admin.menu.showItem')"
-        >
-          <Eye v-if="item.is_active" :size="20" aria-hidden="true" />
-          <EyeOff v-else :size="20" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="menu-row__action-btn menu-row__action-btn--edit"
-          @click.stop="$emit('edit', item)"
-          :title="t('admin.menu.editItem')"
-          :aria-label="t('admin.menu.editItemAria')"
-        >
-          <Settings :size="20" class="menu-row__settings-icon" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="menu-row__action-btn menu-row__action-btn--delete"
-          @click.stop="$emit('delete', item)"
-          :title="t('admin.menu.deleteItem')"
-          :aria-label="t('admin.menu.deleteItemAria')"
-        >
-          <Trash :size="20" aria-hidden="true" />
-        </button>
-      </div>
+      <ActionButtonsGroup :active="item.is_active" :visibility-text="item.is_active ? t('admin.menu.hideItem') : t('admin.menu.showItem')" :add-text="t('admin.menu.addChildItem')" :add-aria-label="t('admin.menu.addChildItemAria')" :edit-text="t('admin.menu.editItem')" :edit-aria-label="t('admin.menu.editItemAria')" :delete-text="t('admin.menu.deleteItem')" :delete-aria-label="t('admin.menu.deleteItemAria')" @toggle-visibility="toggleVisibility" @add="$emit('add', item)" @edit="$emit('edit', item)" @delete="$emit('delete', item)"/>
     </div>
     
-    <!-- Дочерние элементы -->
-    <div v-if="hasChildren && isExpanded" class="menu-row__children">
-      <SlickList 
-        v-model:list="localChildren" 
-        axis="y" 
-        lockAxis="y"
-        :useDragHandle="true"
-        @sort-start="onSortStart"
-        @sort-end="onChildrenReorder"
-        class="children-list"
-      >
-        <SlickItem 
-          v-for="(child, childIndex) in localChildren" 
-          :key="child.id" 
-          :index="childIndex"
-          class="child-item"
-        >
-          <DraggableMenuRow
-            :item="child"
-            :level="level + 1"
-            :index="childIndex"
-            :expand-all-groups="expandAllGroups"
-            @edit="$emit('edit', $event)"
-            @delete="$emit('delete', $event)"
-            @reorder-children="$emit('reorder-children', $event)"
-            @toggle-visibility="$emit('toggle-visibility', $event)"
-            @child-drag-start="$emit('child-drag-start')"
-            @child-drag-end="$emit('child-drag-end')"
-          />
-        </SlickItem>
-      </SlickList>
+    <div v-if="hasChildren" class="menu-row__collapse" :class="{ 'menu-row__collapse--open': isExpanded, 'menu-row__collapse--settling': settling }" @transitionend="onCollapseEnd">
+      <div class="menu-row__collapse-inner">
+        <div class="menu-row__children">
+          <SlickList v-model:list="localChildren" axis="y" lockAxis="y" :useDragHandle="true" @sort-start="onSortStart" @sort-end="onChildrenReorder" class="children-list">
+            <SlickItem v-for="(child, childIndex) in localChildren" :key="child.id" :index="childIndex" class="child-item">
+              <DraggableMenuRow :item="child" :level="level + 1" :index="childIndex" :expand-all-groups="expandAllGroups" @edit="$emit('edit', $event)" @delete="$emit('delete', $event)" @add="$emit('add', $event)" @reorder-children="$emit('reorder-children', $event)" @toggle-visibility="$emit('toggle-visibility', $event)" @child-drag-start="$emit('child-drag-start')" @child-drag-end="$emit('child-drag-end')"/>
+            </SlickItem>
+          </SlickList>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { SlickList, SlickItem, HandleDirective as vHandle } from 'vue-slicksort'
-import { 
-  GripVertical, 
-  ChevronRight, 
-  Settings, 
-  Trash,
-  Eye,
-  EyeOff
-} from '@lucide/vue'
+import { GripVertical, ChevronRight } from '@lucide/vue'
 import LucideIcon from '@/components/LucideIcon.vue'
+import ActionButtonsGroup from './components/ActionButtonsGroup.vue'
 
 const { t } = useAppI18n()
 
@@ -151,34 +76,78 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'delete', 'reorder-children', 'toggle-visibility', 'child-drag-start', 'child-drag-end'])
+const emit = defineEmits(['edit', 'delete', 'add', 'reorder-children', 'toggle-visibility', 'child-drag-start', 'child-drag-end'])
 
-// Флаг для предотвращения сброса при перетаскивании
 const isDragging = ref(false)
 
-// Локальная копия детей для drag & drop
 const localChildren = ref([])
 
-// Проверка наличия детей
 const hasChildren = computed(() => {
   return props.item.children && props.item.children.length > 0
 })
 
-// Состояние раскрытия
 const isExpanded = ref(false)
+const settling = ref(false)
+let settleTimer = null
+let mounted = false
 
-// Инициализация и обновление состояния раскрытия на основе настройки
+function prefersReducedMotion() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || document.documentElement.dataset.ergoMotion === 'reduce'
+}
+
+function finishSettle() {
+  if (settleTimer) {
+    clearTimeout(settleTimer)
+    settleTimer = null
+  }
+  settling.value = false
+}
+
+function setExpanded(next) {
+  if (next === isExpanded.value) return
+  if (prefersReducedMotion()) {
+    isExpanded.value = next
+    finishSettle()
+    return
+  }
+  settling.value = true
+  isExpanded.value = next
+  if (settleTimer) clearTimeout(settleTimer)
+  settleTimer = setTimeout(finishSettle, 320)
+}
+
+function onCollapseEnd(event) {
+  if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
+  finishSettle()
+}
+
 watch(
   [() => props.expandAllGroups, hasChildren],
-  ([expandAll, hasChildren]) => {
-    if (hasChildren) {
-      isExpanded.value = expandAll
+  ([expandAll, children]) => {
+    if (!children) {
+      isExpanded.value = false
+      finishSettle()
+      return
     }
+    if (!mounted) {
+      isExpanded.value = expandAll
+      return
+    }
+    setExpanded(expandAll)
   },
   { immediate: true }
 )
 
-// Синхронизация детей (как в EditorCanvas - синхронизация только когда не происходит drag)
+onMounted(() => {
+  mounted = true
+})
+
+onBeforeUnmount(() => {
+  if (settleTimer) clearTimeout(settleTimer)
+})
+
 watch(
   () => props.item.children,
   (newChildren) => {
@@ -210,7 +179,7 @@ const itemTypeBadgeClass = computed(() => {
 // Переключение раскрытия
 function toggleExpand() {
   if (hasChildren.value) {
-    isExpanded.value = !isExpanded.value
+    setExpanded(!isExpanded.value)
   }
 }
 
@@ -263,7 +232,9 @@ function toggleVisibility() {
   border: 1px solid var(--color-border);
   border-radius: 4px;
   gap: 0.5rem;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-radius 0.28s ease;
+
+  @include ui-reduced-motion;
   
   &:hover {
     background-color: var(--color-hover-background);
@@ -323,97 +294,6 @@ function toggleVisibility() {
     align-items: center;
   }
   
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    overflow: hidden;
-  }
-  
-  &__visibility-btn {
-    background: none;
-    border: none;
-    padding: 0.25rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary-text);
-    opacity: 0;
-    transition: opacity 0.3s ease, color 0.3s ease;
-    flex-shrink: 0;
-    
-    &:hover {
-      color: var(--bs-danger);
-    }
-    
-    &--hidden {
-      opacity: 1;
-      color: var(--bs-danger);
-      
-      &:hover {
-        color: var(--bs-danger);
-        filter: brightness(0.9);
-      }
-    }
-  }
-  
-  &__action-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary-text);
-    opacity: 0;
-    max-width: 0;
-    overflow: hidden;
-    transition: opacity 0.3s ease, color 0.3s ease, max-width 0.3s ease, padding 0.3s ease;
-    flex-shrink: 0;
-    
-    &--edit {
-      &:hover {
-        color: var(--bs-primary);
-        
-        .menu-row__settings-icon {
-          transform: rotate(180deg);
-        }
-      }
-    }
-    
-    &--delete {
-      &:hover {
-        color: var(--bs-danger);
-      }
-    }
-  }
-  
-  &:hover {
-    .menu-row__visibility-btn {
-      opacity: 1;
-    }
-    
-    .menu-row__action-btn {
-      opacity: 1;
-      max-width: 28px;
-      padding: 0.25rem;
-    }
-  }
-
-  @media (hover: none) {
-    .menu-row__visibility-btn {
-      opacity: 1;
-    }
-
-    .menu-row__action-btn {
-      opacity: 1;
-      max-width: 28px;
-      padding: 0.25rem;
-    }
-  }
-  
   &__children {
     border: 1px solid var(--color-border);
     border-top: none;
@@ -421,11 +301,10 @@ function toggleVisibility() {
     padding: 0.5rem;
     background: var(--color-secondary-background);
   }
-  
+
   &--inactive {
     position: relative;
-    
-    // Затемнение только содержимого, не кнопок
+
     .menu-row__handle svg,
     .menu-row__type .badge,
     .menu-row__icon svg,
@@ -433,47 +312,49 @@ function toggleVisibility() {
       opacity: 0.5;
       filter: grayscale(50%);
     }
-    
-    // Кнопки полностью яркие и видные
+
     .menu-row__expand {
       opacity: 1 !important;
       filter: none !important;
-      
+
       svg {
         opacity: 1 !important;
         filter: none !important;
         color: var(--color-primary-text) !important;
       }
     }
-    
-    .menu-row__visibility-btn,
-    .menu-row__action-btn {
-      opacity: 1 !important;
-      filter: none !important;
-      
-      svg {
-        opacity: 1 !important;
-        filter: none !important;
-      }
-    }
-    
-    .menu-row__actions {
-      opacity: 1 !important;
-    }
   }
+}
+
+.menu-row__collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+
+  @include ui-reduced-motion;
+
+  &--open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.menu-row__collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.menu-row__collapse--open:not(.menu-row__collapse--settling) .menu-row__collapse-inner {
+  overflow: visible;
 }
 
 .expand-icon {
   transition: transform 0.2s ease;
+
+  @include ui-reduced-motion;
   
   &--rotated {
     transform: rotate(90deg);
   }
-}
-
-.menu-row__settings-icon {
-  transition: transform 0.5s ease;
-  transform: rotate(0deg);
 }
 
 .children-list {
@@ -496,4 +377,3 @@ function toggleVisibility() {
   }
 }
 </style>
-

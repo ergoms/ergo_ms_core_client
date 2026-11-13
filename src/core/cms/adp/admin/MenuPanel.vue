@@ -4,12 +4,7 @@
       <div class="menu-panel__title-row">
         <h1 class="menu-panel__title">{{ t('admin.menu.pageTitle') }}</h1>
         <HoverTooltip :text="t('admin.menu.pageSettings')" wrap>
-          <button
-            type="button"
-            class="btn-action"
-            :aria-label="t('admin.menu.pageSettings')"
-            @click="showSettingsModal = true"
-          >
+          <button type="button" class="btn-action" :aria-label="t('admin.menu.pageSettings')" @click="showSettingsModal = true">
             <Settings :size="20" aria-hidden="true" />
           </button>
         </HoverTooltip>
@@ -18,30 +13,15 @@
     </div>
 
     <div class="menu-panel__actions d-flex gap-3 mb-4 flex-wrap">
-      <button
-        type="button"
-        class="ui-btn ui-btn--secondary"
-        :disabled="isSaving || isRestoring"
-        @click="showAddModal"
-      >
+      <button type="button" class="ui-btn ui-btn--secondary" :disabled="isSaving || isRestoring" @click="showAddModal()">
         <LayersPlus :size="16" aria-hidden="true" />
         <span>{{ t('admin.menu.addItem') }}</span>
       </button>
-      <button
-        type="button"
-        class="ui-btn ui-btn--secondary"
-        :disabled="isSaving || isRestoring"
-        @click="showAddSeparatorModal"
-      >
+      <button type="button" class="ui-btn ui-btn--secondary" :disabled="isSaving || isRestoring" @click="showAddSeparatorModal">
         <SeparatorHorizontal :size="16" aria-hidden="true" />
         <span>{{ t('admin.menu.addSeparator') }}</span>
       </button>
-      <button
-        type="button"
-        class="ui-btn ui-btn--secondary"
-        :disabled="isSaving || isRestoring"
-        @click="handleRestoreMenu"
-      >
+      <button type="button" class="ui-btn ui-btn--secondary" :disabled="isSaving || isRestoring" @click="handleRestoreMenu">
         <span v-if="isRestoring" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
         <RotateCcw v-else :size="16" aria-hidden="true" />
         <span>{{ isRestoring ? t('admin.menu.restoring') : t('admin.menu.restoreFromMigrations') }}</span>
@@ -56,27 +36,19 @@
       <LoadingContentArea :loading="isLoading" :loading-text="t('admin.menu.loading')">
         <div v-if="menuItems.length === 0" class="alert alert-info d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
           <span>{{ t('admin.menu.empty') }}</span>
-          <button
-            type="button"
-            class="ui-btn ui-btn--primary"
-            :disabled="isRestoring"
-            @click="handleRestoreMenu"
-          >
+          <button type="button" class="ui-btn ui-btn--primary" :disabled="isRestoring" @click="handleRestoreMenu">
             <span v-if="isRestoring" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <RotateCcw v-else :size="16" aria-hidden="true" />
             <span>{{ isRestoring ? t('admin.menu.restoring') : t('admin.menu.restoreFromMigrations') }}</span>
           </button>
         </div>
         <div v-else>
-          <DraggableMenuList :items="visibleMenuItems" :separators="visibleSeparators" :expand-all-groups="expandAllGroups" @edit="editItem" @delete="confirmDeleteItem" @reorder="handleMenuReorder" @reorder-separators="handleSeparatorReorderFromList" @toggle-visibility="handleToggleVisibility" @edit-separator="editSeparator" @delete-separator="confirmDeleteSeparator" @toggle-visibility-separator="handleToggleSeparatorVisibility"/>
+          <DraggableMenuList :items="visibleMenuItems" :separators="visibleSeparators" :expand-all-groups="expandAllGroups" @edit="editItem" @delete="confirmDeleteItem" @add="addChildItem" @reorder="handleMenuReorder" @reorder-separators="handleSeparatorReorderFromList" @toggle-visibility="handleToggleVisibility" @edit-separator="editSeparator" @delete-separator="confirmDeleteSeparator" @toggle-visibility-separator="handleToggleSeparatorVisibility"/>
         </div>
       </LoadingContentArea>
     </div>
-
-    <MenuItemModal v-if="showItemModal" :item="currentItem" :parent-options="parentOptions" :roles="roles" :role-groups="roleGroups" @save="saveItem" @close="closeItemModal"/>
-    
+    <MenuItemModal v-if="showItemModal" :item="currentItem" :initial-parent="initialParent" :parent-options="parentOptions" :roles="roles" :role-groups="roleGroups" @save="saveItem" @close="closeItemModal"/>
     <MenuSeparatorModal v-if="showSeparatorModal" :separator="currentSeparator" :roles="roles" :role-groups="roleGroups" @save="saveSeparator" @close="closeSeparatorModal"/>
-    
     <MenuSettingsModal v-if="showSettingsModal" :show="showSettingsModal" @close="showSettingsModal = false" @save="handleSettingsSave"/>
   </div>
 </template>
@@ -93,22 +65,11 @@ import UnsavedChangesToast from '@/components/UnsavedChangesToast.vue'
 import HoverTooltip from '@/components/HoverTooltip.vue'
 import { tGlobal } from '@/i18n/index.js'
 import { logError } from '@/js/utils/logError.js'
-import {
-  getMenuItems,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
-  getMenuSeparators,
-  createMenuSeparator,
-  updateMenuSeparator,
-  deleteMenuSeparator,
-  clearMenuCache,
-  reorderMenuItems,
-} from '@/core/cms/js/menuService.js'
+import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getMenuSeparators, createMenuSeparator, updateMenuSeparator, deleteMenuSeparator, clearMenuCache, reorderMenuItems, } from '@/core/cms/js/menuService.js'
 import { runRestoreMenuFromMigrations } from './MenuPanelComponents/menuRestoreActions.js'
 import { apiClient } from '@/js/api/manager'
 import { endpoints, initEndpoints } from '@/js/api/endpoints'
-import Cookies from 'js-cookie'
+import { loadExpandAllGroups } from './MenuPanelComponents/expandAllGroupsStorage.js'
 
 const { t } = useAppI18n()
 
@@ -125,7 +86,6 @@ const DraggableMenuList = defineAsyncComponent(() =>
 
 const toast = useToast()
 
-const COOKIE_NAME = 'menu_panel_expand_all_groups'
 const expandAllGroups = ref(false)
 
 const isLoading = ref(false)
@@ -275,6 +235,7 @@ const showItemModal = ref(false)
 const showSeparatorModal = ref(false)
 const showSettingsModal = ref(false)
 const currentItem = ref(null)
+const initialParent = ref(null)
 const currentSeparator = ref(null)
 
 const parentOptions = computed(() => {
@@ -312,8 +273,6 @@ async function loadMenuItems() {
 
 async function reloadMenuPanel() {
   notifyMenuUpdated()
-  // Пока грузятся новые items/separators, не сравнивать со старым baseline —
-  // иначе UnsavedChangesToast мелькает на кадр после restore.
   pendingMenuReorder.value = []
   pendingSeparatorReorder.value = []
   initialCombinedOrder.value = []
@@ -522,14 +481,20 @@ async function ensureChangesSaved() {
   return !hasPendingOrderChanges()
 }
 
-async function showAddModal() {
+async function showAddModal(parentId = null) {
   if (!(await ensureChangesSaved())) return
   currentItem.value = null
+  initialParent.value = parentId
   showItemModal.value = true
+}
+
+function addChildItem(item) {
+  return showAddModal(item.id)
 }
 
 function editItem(item) {
   currentItem.value = { ...item }
+  initialParent.value = null
   showItemModal.value = true
 }
 
@@ -606,6 +571,7 @@ async function handleToggleSeparatorVisibility(separator) {
 function closeItemModal() {
   showItemModal.value = false
   currentItem.value = null
+  initialParent.value = null
 }
 
 async function showAddSeparatorModal() {
@@ -682,13 +648,8 @@ function handleSettingsSave(newValue) {
   toast.success(tGlobal('admin.menu.settingsSaved'))
 }
 
-function loadExpandAllGroupsFromCookie() {
-  const value = Cookies.get(COOKIE_NAME)
-  expandAllGroups.value = value === 'true'
-}
-
 onMounted(async () => {
-  loadExpandAllGroupsFromCookie()
+  expandAllGroups.value = loadExpandAllGroups()
   const listPrefetch = import('./MenuPanelComponents/DraggableMenuList.vue')
   await initEndpoints()
   await Promise.all([

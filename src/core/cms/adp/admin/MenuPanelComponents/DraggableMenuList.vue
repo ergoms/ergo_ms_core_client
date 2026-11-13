@@ -11,24 +11,10 @@
             <Minus :size="14" />{{ item.name }}
           </span>
           <div class="separator-row-inline__line"></div>
-          
-          <div class="separator-row-inline__actions-wrapper">
-            <div class="separator-row-inline__actions">
-            <button type="button" class="separator-row-inline__visibility-btn" :class="{ 'separator-row-inline__visibility-btn--hidden': !item.is_active }" @click.stop="$emit('toggle-visibility-separator', getOriginalSeparator(item))" :title="item.is_active ? t('admin.menu.hideSeparator') : t('admin.menu.showSeparator')" :aria-label="item.is_active ? t('admin.menu.hideSeparator') : t('admin.menu.showSeparator')">
-              <Eye v-if="item.is_active" :size="20" aria-hidden="true" />
-              <EyeOff v-else :size="20" aria-hidden="true" />
-            </button>
-            <button type="button" class="separator-row-inline__action-btn separator-row-inline__action-btn--edit" @click.stop="$emit('edit-separator', getOriginalSeparator(item))" :title="t('admin.menu.editItem')" :aria-label="t('admin.menu.editSeparator')">
-              <Settings :size="20" class="separator-row-inline__settings-icon" aria-hidden="true" />
-            </button>
-            <button type="button" class="separator-row-inline__action-btn separator-row-inline__action-btn--delete" @click.stop="$emit('delete-separator', getOriginalSeparator(item))" :title="t('admin.menu.deleteItem')" :aria-label="t('admin.menu.deleteSeparator')">
-              <Trash :size="20" aria-hidden="true" />
-            </button>
-            </div>
-          </div>
+          <ActionButtonsGroup overlay :active="item.is_active" :visibility-text="item.is_active ? t('admin.menu.hideSeparator') : t('admin.menu.showSeparator')" :edit-text="t('admin.menu.editItem')" :edit-aria-label="t('admin.menu.editSeparator')" :delete-text="t('admin.menu.deleteItem')" :delete-aria-label="t('admin.menu.deleteSeparator')" @toggle-visibility="$emit('toggle-visibility-separator', getOriginalSeparator(item))" @edit="$emit('edit-separator', getOriginalSeparator(item))" @delete="$emit('delete-separator', getOriginalSeparator(item))"/>
         </div>
         
-        <DraggableMenuRow v-else :item="item" :level="0" :index="index" :expand-all-groups="expandAllGroups" @edit="$emit('edit', $event)" @delete="$emit('delete', $event)" @reorder-children="$emit('reorder', $event)" @toggle-visibility="$emit('toggle-visibility', $event)" @child-drag-start="onChildDragStart" @child-drag-end="onChildDragEnd"/>
+        <DraggableMenuRow v-else :item="item" :level="0" :index="index" :expand-all-groups="expandAllGroups" @edit="$emit('edit', $event)" @delete="$emit('delete', $event)" @add="$emit('add', $event)" @reorder-children="$emit('reorder', $event)" @toggle-visibility="$emit('toggle-visibility', $event)" @child-drag-start="onChildDragStart" @child-drag-end="onChildDragEnd"/>
       </SlickItem>
     </SlickList>
   </div>
@@ -38,7 +24,8 @@
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { ref, watch, nextTick } from 'vue'
 import { SlickList, SlickItem, HandleDirective as vHandle } from 'vue-slicksort'
-import { Minus, GripVertical, Settings, Trash, Eye, EyeOff } from '@lucide/vue'
+import { Minus, GripVertical } from '@lucide/vue'
+import ActionButtonsGroup from './components/ActionButtonsGroup.vue'
 import DraggableMenuRow from './DraggableMenuRow.vue'
 
 const { t } = useAppI18n()
@@ -58,7 +45,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'delete', 'reorder', 'reorder-separators', 'toggle-visibility', 'edit-separator', 'delete-separator', 'toggle-visibility-separator'])
+const emit = defineEmits(['edit', 'delete', 'add', 'reorder', 'reorder-separators', 'toggle-visibility', 'edit-separator', 'delete-separator', 'toggle-visibility-separator'])
 
 const isDragging = ref(false)
 const isChildDragging = ref(false)
@@ -264,92 +251,6 @@ function onChildDragEnd() {
     }
   }
   
-  &__actions-wrapper {
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-  }
-  
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  
-  &__visibility-btn {
-    background: none;
-    border: none;
-    border-radius: 4px;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary-text);
-    opacity: 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    transition: opacity 0.3s ease, color 0.3s ease, width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
-    flex-shrink: 0;
-    height: 28px;
-    
-    &:hover {
-      color: var(--bs-danger);
-    }
-    
-    &--hidden {
-      opacity: 1;
-      color: var(--bs-danger);
-      width: 28px;
-      padding: 0.25rem;
-      
-      &:hover {
-        color: var(--bs-danger);
-        filter: brightness(0.9);
-      }
-    }
-  }
-  
-  &__action-btn {
-    background: none;
-    border: none;
-    border-radius: 4px;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary-text);
-    opacity: 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    transition: opacity 0.3s ease, color 0.3s ease, width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
-    flex-shrink: 0;
-    height: 28px;
-    
-    &--edit {
-      &:hover {
-        color: var(--bs-primary);
-        
-        .separator-row-inline__settings-icon {
-          transform: rotate(180deg);
-        }
-      }
-    }
-    
-    &--delete {
-      &:hover {
-        color: var(--bs-danger);
-      }
-    }
-  }
-  
   &--inactive {
     position: relative;
     
@@ -369,64 +270,6 @@ function onChildDragEnd() {
       background: linear-gradient(90deg, transparent, var(--color-secondary-text) 20%, var(--color-secondary-text) 80%, transparent);
     }
     
-    .separator-row-inline__action-btn {
-      margin: 0 !important;
-    }
-    
-    .separator-row-inline__visibility-btn,
-    .separator-row-inline__action-btn {
-      opacity: 1 !important;
-      filter: none !important;
-      
-      svg {
-        opacity: 1 !important;
-        filter: none !important;
-      }
-    }
-    
-    .separator-row-inline__actions-wrapper,
-    .separator-row-inline__actions {
-      opacity: 1 !important;
-    }
-    
-    &:hover {
-      .separator-row-inline__actions {
-        gap: 0.25rem;
-      }
-    }
   }
-  
-  &:hover {
-    .separator-row-inline__visibility-btn {
-      opacity: 1;
-      width: 28px;
-      padding: 0.25rem;
-    }
-    
-    .separator-row-inline__action-btn {
-      opacity: 1;
-      width: 28px;
-      padding: 0.25rem;
-    }
-  }
-
-  @media (hover: none) {
-    .separator-row-inline__visibility-btn {
-      opacity: 1;
-      width: 28px;
-      padding: 0.25rem;
-    }
-
-    .separator-row-inline__action-btn {
-      opacity: 1;
-      width: 28px;
-      padding: 0.25rem;
-    }
-  }
-}
-
-.separator-row-inline__settings-icon {
-  transition: transform 0.5s ease;
-  transform: rotate(0deg);
 }
 </style>

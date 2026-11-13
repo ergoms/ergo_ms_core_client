@@ -2,8 +2,8 @@
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import { ref, watch, onMounted } from 'vue'
 import { Settings } from '@lucide/vue'
-import Cookies from 'js-cookie'
 import ModalCenter from '@/components/ModalCenter.vue'
+import { loadExpandAllGroups, saveExpandAllGroups } from './expandAllGroupsStorage.js'
 
 const { t } = useAppI18n()
 
@@ -15,29 +15,23 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 
 const expandAllGroups = ref(false)
-const COOKIE_NAME = 'menu_panel_expand_all_groups'
 
-function loadFromCookie() {
-  const value = Cookies.get(COOKIE_NAME)
-  expandAllGroups.value = value === 'true'
-}
-
-function saveToCookie() {
-  Cookies.set(COOKIE_NAME, expandAllGroups.value.toString(), { expires: 365 })
+function loadSetting() {
+  expandAllGroups.value = loadExpandAllGroups()
 }
 
 watch(() => props.show, (isOpen) => {
   if (isOpen) {
-    loadFromCookie()
+    loadSetting()
   }
 })
 
 onMounted(() => {
-  loadFromCookie()
+  loadSetting()
 })
 
 function handleSave() {
-  saveToCookie()
+  saveExpandAllGroups(expandAllGroups.value)
   emit('save', expandAllGroups.value)
   emit('close')
 }
