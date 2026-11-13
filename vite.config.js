@@ -835,12 +835,13 @@ export default defineConfig(() => ({
               // Один запрос вместо файла на каждый пункт меню. Редкие глифы сюда не входят.
               name: 'lucide_menu',
               priority: 5,
+              minShareCount: 0,
               test: (id) => {
                 if (LUCIDE_MENU_ICON_FILES.size === 0) {
                   return false
                 }
                 const normalized = id.replace(/\\/g, '/')
-                const match = normalized.match(/\/@lucide\/vue\/dist\/esm\/icons\/([^/]+)\.mjs$/)
+                const match = normalized.match(/\/@lucide\/vue\/dist\/esm\/icons\/([^/?]+)\.mjs(?:\?|$)/)
                 return Boolean(match && match[1] !== 'index' && LUCIDE_MENU_ICON_FILES.has(match[1]))
               },
             },

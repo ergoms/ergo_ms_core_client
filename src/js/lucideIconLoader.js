@@ -74,6 +74,16 @@ function loadIconGlob() {
   return iconGlobPromise
 }
 
+/** @type {Promise<{ MENU_ICON_LOADERS: Record<string, () => Promise<unknown>> }>|null} */
+let menuLoadersPromise = null
+
+function loadMenuIconLoaders() {
+  if (!menuLoadersPromise) {
+    menuLoadersPromise = import('./lucideMenuIcons.generated.js')
+  }
+  return menuLoadersPromise
+}
+
 /**
  * @param {string} iconName PascalCase или нормализуемая строка (Home, Settings, …)
  * @returns {Promise<import('vue').Component|null>}
@@ -97,18 +107,24 @@ async function loadIconComponent(iconName) {
     if (coreLoader) {
       mod = await coreLoader()
     } else {
-      const { LUCIDE_ICON_FILES } = await loadIconMapModule()
-      file = LUCIDE_ICON_FILES[key]
-      if (!file) {
-        return null
+      const { MENU_ICON_LOADERS } = await loadMenuIconLoaders()
+      const menuLoader = MENU_ICON_LOADERS[key]
+      if (menuLoader) {
+        mod = await menuLoader()
+      } else {
+        const { LUCIDE_ICON_FILES } = await loadIconMapModule()
+        file = LUCIDE_ICON_FILES[key]
+        if (!file) {
+          return null
+        }
+        if (iconComponentByFile.has(file)) {
+          const cached = iconComponentByFile.get(file)
+          iconComponentCache.set(key, cached)
+          return cached
+        }
+        const { loadIconModule } = await loadIconGlob()
+        mod = await loadIconModule(file)
       }
-      if (iconComponentByFile.has(file)) {
-        const cached = iconComponentByFile.get(file)
-        iconComponentCache.set(key, cached)
-        return cached
-      }
-      const { loadIconModule } = await loadIconGlob()
-      mod = await loadIconModule(file)
     }
     if (!mod) {
       return null
