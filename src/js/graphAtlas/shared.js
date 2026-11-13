@@ -125,3 +125,50 @@ export function edgeLineVisible(e, sn, tn, k, bridges, edgeIndex, ego) {
 }
 
 export { TER, DEFAULT_STRINGS, fmt, alpha, localXY, reducedMotion }
+
+// Кадр окрестности: доля соседей, по которой меряется основной разброс,
+// во сколько раз дальше него ещё тянется кадр, минимальный радиус в
+// координатах снимка и потолок масштаба, чтобы узел без соседей не
+// раздувался на весь холст. Подписи стоят сбоку от вершины, поэтому по
+// горизонтали запас шире.
+const EGO_CORE_QUANTILE = 0.85
+const EGO_TAIL_FACTOR = 1.6
+const EGO_MIN_REACH = 60
+const EGO_MAX_SCALE = 4
+const EGO_LABEL_PAD_X = 140
+const EGO_LABEL_PAD_Y = 40
+
+/**
+ * Полуширина окрестности по одной оси. Если соседи разбросаны ровно, в кадр
+ * входят все. Одиночный дальний хвост камеру к краю карты не уводит: его
+ * ребро уходит за край кадра и видно при панораме.
+ */
+function egoReach(offsets) {
+  if (!offsets.length) return EGO_MIN_REACH
+  const sorted = offsets.slice().sort((a, b) => a - b)
+  const far = sorted[sorted.length - 1]
+  const core = sorted[Math.floor((sorted.length - 1) * EGO_CORE_QUANTILE)]
+  return Math.max(EGO_MIN_REACH, Math.min(far, core * EGO_TAIL_FACTOR))
+}
+
+/**
+ * Центр и масштаб кадра окрестности: в центре якоря (их среднее), в кадре
+ * видимые соседи. ``pts`` — видимые узлы окрестности с x, y и id.
+ */
+export function egoFrame(pts, egoIds, width, height) {
+  const idSet = new Set(egoIds || [])
+  const seeds = pts.filter((n) => idSet.has(n.id))
+  const anchor = seeds.length ? seeds : pts
+  const cx = anchor.reduce((acc, n) => acc + n.x, 0) / anchor.length
+  const cy = anchor.reduce((acc, n) => acc + n.y, 0) / anchor.length
+  const rx = egoReach(pts.map((n) => Math.abs(n.x - cx)))
+  const ry = egoReach(pts.map((n) => Math.abs(n.y - cy)))
+  const padX = Math.min(EGO_LABEL_PAD_X, width * 0.2)
+  const padY = Math.min(EGO_LABEL_PAD_Y, height * 0.15)
+  const k = Math.min(
+    Math.max(1, width / 2 - padX) / rx,
+    Math.max(1, height / 2 - padY) / ry,
+    EGO_MAX_SCALE,
+  )
+  return { cx, cy, k: Math.max(0.2, k) }
+}

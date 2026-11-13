@@ -18,7 +18,7 @@ import {
 } from './draw.js'
 import {
   TER, DEFAULT_STRINGS, localXY, reducedMotion,
-  pickSimilarBridges, EDGE_KIND_SIMILAR, leafLeafCrossCluster,
+  pickSimilarBridges, EDGE_KIND_SIMILAR, leafLeafCrossCluster, egoFrame,
 } from './shared.js'
 
 function kindsToFlags(kinds) {
@@ -410,9 +410,9 @@ export function mountGraphAtlas(root, options = {}) {
     let pts = nodes.filter(vis)
     if (!pts.length) pts = nodes
     else if (F.ego) {
-      const seed = pts.find((n) => F.egoIds.includes(n.id)) || pts[0]
-      const local = pts.filter((n) => n.cl === seed.cl)
-      pts = local.length >= 2 ? local : [seed]
+      const { cx, cy, k } = egoFrame(pts, F.egoIds, state.W, state.H)
+      zoomTo(zoomIdentity.translate(state.W / 2, state.H / 2).scale(k).translate(-cx, -cy), anim ? 240 : 0)
+      return
     }
     const xs = pts.map((n) => n.x)
     const ys = pts.map((n) => n.y)
@@ -420,7 +420,7 @@ export function mountGraphAtlas(root, options = {}) {
     const x1 = d3max(xs)
     const y0 = d3min(ys)
     const y1 = d3max(ys)
-    const pad = F.ego ? 80 : 56
+    const pad = 56
     const dx = Math.max(40, x1 - x0)
     const dy = Math.max(40, y1 - y0)
     const sc = Math.min(state.W / (dx + pad), state.H / (dy + pad), 8)
