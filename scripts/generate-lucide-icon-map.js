@@ -6,11 +6,15 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { scanIconNames } from './lib/icon-source-scan.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const clientRoot = path.resolve(__dirname, '..')
 const outputPath = path.join(clientRoot, 'src/js/lucideIconFiles.generated.js')
 const coreOutputPath = path.join(clientRoot, 'src/js/lucideCoreIcons.generated.js')
+const projectRoot = path.resolve(clientRoot, '../..')
+// cache_client_dir в core/deployment/project_layout.py
+const iconScanCachePath = path.join(projectRoot, 'virtual_env/cache/client/lucide-icon-scan.json')
 
 const require = createRequire(import.meta.url)
 
@@ -162,41 +166,11 @@ function collectReferencedIconFiles(iconMap) {
     path.resolve(clientRoot, '../api/src'),
     path.resolve(clientRoot, '../../modules'),
   ]
-  const skipDirs = new Set(['node_modules', 'dist', '.git', '__pycache__', 'virtual_env', 'coverage'])
-  const chunks = []
+  const { names, stats } = scanIconNames(roots, { cachePath: iconScanCachePath, projectRoot })
+  console.log(
+    `[INFO] Обход исходников для иконок: ${stats.files} файлов, прочитано ${stats.read}, ${stats.ms} мс`,
+  )
 
-  function walk(dir) {
-    if (!fs.existsSync(dir)) {
-      return
-    }
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (skipDirs.has(entry.name)) {
-        continue
-      }
-      const abs = path.join(dir, entry.name)
-      if (entry.isDirectory()) {
-        walk(abs)
-        continue
-      }
-      if (!/\.(vue|js|mjs|ts|py|yml|yaml)$/.test(entry.name)) {
-        continue
-      }
-      if (entry.name.includes('.generated.')) {
-        continue
-      }
-      const size = fs.statSync(abs).size
-      if (size > 1_500_000) {
-        continue
-      }
-      chunks.push(fs.readFileSync(abs, 'utf8'))
-    }
-  }
-
-  for (const root of roots) {
-    walk(root)
-  }
-
-  const source = chunks.join('\n')
   const files = new Set()
 
   function remember(rawName) {
@@ -220,13 +194,8 @@ function collectReferencedIconFiles(iconMap) {
     }
   }
 
-  for (const match of source.matchAll(/(?:icon|iconName|icon_name)\s*[:=]\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]/g)) {
-    remember(match[1])
-  }
-  for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]@lucide\/vue['"]/g)) {
-    for (const part of match[1].split(',')) {
-      remember(part.trim().split(/\s+as\s+/)[0])
-    }
+  for (const name of names) {
+    remember(name)
   }
   for (const name of MENU_ICON_NAMES_FROM_DATABASE) {
     remember(name)
