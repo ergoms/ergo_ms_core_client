@@ -928,6 +928,14 @@ export default defineConfig(() => ({
     strictPort: true,
     host: process.env.CLIENT_HOST || 'localhost',
     https: false,
+    // Две записи .vue подряд (десятки мс) дают два события внахлёст: шаблон обновляется,
+    // а стиль остаётся из промежуточной версии. Ждём, пока запись закончится, и шлём одно событие.
+    watch: {
+      awaitWriteFinish: {
+        stabilityThreshold: 150,
+        pollInterval: 30,
+      },
+    },
     // Прокси для CLIENT_USE_RELATIVE_API=true без nginx (редко) и ручных запросов к /api на origin Vite.
     proxy: {
       '/api': {
