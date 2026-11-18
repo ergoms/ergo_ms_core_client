@@ -33,8 +33,12 @@ coverage
 # Генерируется перед dev/build (scripts/generate-module-globs.js)
 src/modules/core/sharedGlobs.generated.js
 
-# Генерируется перед dev/build (scripts/generate-lucide-icon-map.js)
+# Генерируется перед dev/build (scripts/generate-lucide-icon-map.js).
+# Списки меню зависят от модулей в modules/ на этой машине, поэтому не в git.
 src/js/lucideIconFiles.generated.js
+src/js/lucideCoreIcons.generated.js
+src/js/lucideMenuIcons.generated.js
+src/js/lucideMenuIconFiles.generated.json
 
 # Генерируется unplugin-auto-import при dev/build (vite.config.js)
 src/auto-imports.d.ts
