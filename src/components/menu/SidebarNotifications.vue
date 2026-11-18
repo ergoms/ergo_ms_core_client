@@ -264,10 +264,10 @@ async function onHideSidebar(id) {
 .tools__notifications-wrapper {
   position: relative;
   display: inline-block;
-  padding-top: 4px;
-  padding-right: 4px;
-  margin-top: -4px;
-  margin-right: -4px;
+  padding-top: 6px;
+  padding-right: 8px;
+  margin-top: -6px;
+  margin-right: -8px;
 }
 
 .notifications-btn {
@@ -295,17 +295,20 @@ async function onHideSidebar(id) {
 
 .notifications-badge {
   position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--bs-danger);
-  color: var(--bs-white, #fff);
-  font-size: 10px;
+  // Значок сидит на углу кнопки и заходит на иконку только краем, иначе двузначное число закрывает колокольчик.
+  top: -5px;
+  right: -7px;
+  // Соседняя кнопка идёт в разметке позже и при наведении закрасила бы выступающий край значка.
+  z-index: 1;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ui-accent, var(--bs-primary));
+  color: var(--ui-accent-text, var(--bs-white, #fff));
+  font-size: 9px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 16px;
   text-align: center;
   pointer-events: none;
 }
