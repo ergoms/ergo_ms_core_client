@@ -14,6 +14,10 @@ const props = defineProps({
     type: [String, Function],
     required: true,
   },
+  accent: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['remove'])
@@ -24,7 +28,7 @@ function labelFor(item) {
 </script>
 
 <template>
-  <ul v-if="items.length" class="removable-tags">
+  <ul v-if="items.length" class="removable-tags" :class="{ 'removable-tags--accent': accent }">
     <li v-for="item in items" :key="item" class="removable-tags__item">
       <span>{{ item }}</span>
       <button type="button" class="removable-tags__remove" :aria-label="labelFor(item)" :disabled="disabled" @click="emit('remove', item)">
@@ -87,5 +91,15 @@ function labelFor(item) {
 
 .removable-tags__remove:disabled {
   cursor: default;
+}
+
+.removable-tags--accent .removable-tags__item {
+  background: var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+.removable-tags--accent .removable-tags__remove,
+.removable-tags--accent .removable-tags__remove:hover:not(:disabled) {
+  color: var(--ui-accent-text);
 }
 </style>
