@@ -208,6 +208,13 @@ defineExpose({ focus })
     border: 1px solid var(--color-border);
     color: var(--color-primary-text);
     padding-right: var(--search-input-padding-end);
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-hover-background);
+    }
 
     &::placeholder {
       color: var(--color-secondary-text);
