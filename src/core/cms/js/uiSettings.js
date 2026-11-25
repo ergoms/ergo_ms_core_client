@@ -3,6 +3,7 @@ import { CORE_ICON } from '@/config/coreIconNames.js'
 import {
   applyThemeModePreference,
   readThemePreference,
+  THEME_CHANGE_EVENT,
 } from '@/js/theme-manager.js'
 import { syncUiPreferencesFromStorage } from '@/core/cms/js/uiPreferencesSettings.js'
 import {
@@ -50,10 +51,20 @@ let skipLanguagePersist = false
 watch(
   theme,
   (val) => {
+    // Значение уже в localStorage — пришло из другой вкладки и там применено.
+    if (val === readThemePreference()) {
+      return
+    }
     applyThemeModePreference(val)
   },
   { immediate: false },
 )
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(THEME_CHANGE_EVENT, () => {
+    theme.value = readThemePreference()
+  })
+}
 
 watch(language, (val) => {
   const normalized = normalizeLocale(val)

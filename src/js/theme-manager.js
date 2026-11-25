@@ -281,8 +281,40 @@ function attachSystemThemeListener() {
   })
 }
 
+const CROSS_TAB_THEME_KEYS = new Set([
+  THEME_STORAGE_KEY,
+  ACTIVE_THEME_STORAGE_KEY,
+  ACTIVE_SITE_PAIR_STORAGE_KEY,
+])
+
+let crossTabListenerAttached = false
+
+/**
+ * Событие storage приходит только в другие вкладки, поэтому повторного применения
+ * в исходной вкладке нет. Повторная запись того же значения `theme` событие не шлёт,
+ * так что вкладки не перезаписывают ключ друг за другом.
+ */
+function attachCrossTabThemeListener() {
+  if (crossTabListenerAttached || typeof window === 'undefined') {
+    return
+  }
+  crossTabListenerAttached = true
+
+  window.addEventListener('storage', (event) => {
+    if (event.storageArea !== localStorage) {
+      return
+    }
+    // key === null — localStorage.clear() в другой вкладке.
+    if (event.key !== null && !CROSS_TAB_THEME_KEYS.has(event.key)) {
+      return
+    }
+    applyThemeModePreference(readThemePreference())
+  })
+}
+
 export function initTheme() {
   attachSystemThemeListener()
+  attachCrossTabThemeListener()
   applyThemeModePreference(readThemePreference())
 }
 
