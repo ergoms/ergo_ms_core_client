@@ -258,6 +258,7 @@ function buildClientEnvDefines(envValues) {
     CLIENT_USE_RELATIVE_API: useRelativeApi,
     CLIENT_DEFAULT_LANGUAGE:
       envValues.CLIENT_DEFAULT_LANGUAGE || envValues.DEFAULT_LANGUAGE || 'ru',
+    CLIENT_TIME_ZONE: (envValues.TIME_ZONE || 'UTC').trim() || 'UTC',
     CLIENT_LOG_LEVEL: logLevel,
     CLIENT_BROWSER_LOG_ENABLED: envValues.CLIENT_BROWSER_LOG_ENABLED ?? 'true',
     CLIENT_MONITORING_ENABLED: envValues.CLIENT_MONITORING_ENABLED ?? 'false',

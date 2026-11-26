@@ -1,6 +1,6 @@
 import { apiClient } from '../../../js/api/manager'
 import { cmsEndpoints as endpoints } from '@/core/cms/js/endpoints.js'
-import { formatDateTime, getRelativeTime } from '@/js/utils/timeUtils.js'
+import { formatDateTime, getRelativeTime, systemParts } from '@/js/utils/timeUtils.js'
 import { tGlobal } from '@/i18n/index.js'
 import { getDefaultLocale } from '@/i18n/supportedLocales.js'
 
@@ -26,9 +26,10 @@ function validateBirthDate(value) {
     return tGlobal('settings.profile.birthDateTooEarly')
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (parsed > today) {
+  const today = systemParts(new Date())
+  const birthKey = year * 10000 + month * 100 + day
+  const todayKey = today.year * 10000 + today.month * 100 + today.day
+  if (birthKey > todayKey) {
     return tGlobal('settings.profile.birthDateFuture')
   }
   return ''

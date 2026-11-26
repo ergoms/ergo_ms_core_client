@@ -7,7 +7,7 @@ import NotificationActions from '@/core/notifications/components/NotificationAct
 import HoverTooltip from '@/components/HoverTooltip.vue'
 import LucideIcon from '@/components/LucideIcon.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { formatDateTime, formatDateWeekdayTime } from '@/js/utils/timeUtils.js'
+import { formatDateTime, formatDateWeekdayTime, formatTime, formatWeekday } from '@/js/utils/timeUtils.js'
 import { useToast } from '@/js/utils/toast.js'
 import { enterNotificationScope } from '@/core/notifications/js/enterNotificationScope.js'
 import { expandedNotificationId } from '@/core/notifications/js/expandedNotification.js'
@@ -93,32 +93,13 @@ const sourceLabel = computed(() => {
 })
 
 function formatTimeOnly(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  try {
-    return new Intl.DateTimeFormat('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d)
-  } catch {
-    return ''
-  }
+  return formatTime(iso)
 }
 
 function formatWeekdayTime(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  try {
-    return new Intl.DateTimeFormat('ru-RU', {
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d)
-  } catch {
-    return ''
-  }
+  const day = formatWeekday(iso, 'short')
+  const time = formatTime(iso)
+  return [day, time].filter(Boolean).join(' ')
 }
 
 const formattedDate = computed(() => {

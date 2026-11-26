@@ -1,22 +1,11 @@
 import { tGlobal } from '@/i18n/index.js'
+import { systemDayStamp, systemParts } from '@/js/utils/timeUtils.js'
 
 /**
- * Группировка уведомлений по дате: Сегодня / Вчера / На этой неделе / Ранее.
+ * Группировка уведомлений по дате системы: Сегодня / Вчера / На этой неделе / Ранее.
  */
 
-function startOfLocalDay(date) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function startOfLocalWeek(date) {
-  const d = startOfLocalDay(date)
-  const day = d.getDay()
-  const mondayOffset = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + mondayOffset)
-  return d
-}
+const DAY_MS = 86400000
 
 /**
  * @param {Array<{ id: number|string, created_at?: string }>} items
@@ -26,10 +15,9 @@ export function groupNotificationsByDate(items) {
   if (!Array.isArray(items) || items.length === 0) return []
 
   const now = new Date()
-  const todayStart = startOfLocalDay(now)
-  const yesterdayStart = new Date(todayStart)
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-  const weekStart = startOfLocalWeek(now)
+  const todayStart = systemDayStamp(now)
+  const yesterdayStart = todayStart - DAY_MS
+  const weekStart = todayStart - systemParts(now).weekdayMon0 * DAY_MS
 
   const buckets = {
     today: { key: 'today', label: tGlobal('settings.inbox.today'), items: [] },
@@ -44,11 +32,12 @@ export function groupNotificationsByDate(items) {
       buckets.earlier.items.push(item)
       continue
     }
-    if (created >= todayStart) {
+    const createdDay = systemDayStamp(created)
+    if (createdDay >= todayStart) {
       buckets.today.items.push(item)
-    } else if (created >= yesterdayStart) {
+    } else if (createdDay >= yesterdayStart) {
       buckets.yesterday.items.push(item)
-    } else if (created >= weekStart) {
+    } else if (createdDay >= weekStart) {
       buckets.week.items.push(item)
     } else {
       buckets.earlier.items.push(item)

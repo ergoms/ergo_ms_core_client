@@ -11,6 +11,7 @@ import NotificationItem from '@/core/notifications/components/NotificationItem.v
 import LoadingContentArea from '@/components/LoadingContentArea.vue'
 import HoverTooltip from '@/components/HoverTooltip.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
+import { systemDayStamp } from '@/js/utils/timeUtils.js'
 
 const HOVER_READ_DELAY_MS = 500
 const PANEL_ID = 'sidebar-notifications-panel'
@@ -49,11 +50,8 @@ function itemDateStyle(item) {
   if (!item?.created_at) return 'weekday'
   const created = new Date(item.created_at)
   if (Number.isNaN(created.getTime())) return 'weekday'
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const yesterdayStart = new Date(todayStart)
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-  if (created >= yesterdayStart) return 'time'
+  const today = systemDayStamp(new Date())
+  if (systemDayStamp(created) >= today - 86400000) return 'time'
   return 'weekday'
 }
 

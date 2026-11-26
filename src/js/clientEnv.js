@@ -31,6 +31,8 @@ export const clientEnv = {
   useRelativeApi: readBool('CLIENT_USE_RELATIVE_API', false),
   /** Язык UI по умолчанию (из DEFAULT_LANGUAGE / CLIENT_DEFAULT_LANGUAGE в .env). */
   defaultLanguage: readEnv('CLIENT_DEFAULT_LANGUAGE', 'ru'),
+  /** Пояс часов интерфейса (из TIME_ZONE в .env). */
+  timeZone: readEnv('CLIENT_TIME_ZONE', 'UTC'),
   logLevel: readEnv('CLIENT_LOG_LEVEL', 'debug'),
   browserLogEnabled: readBool('CLIENT_BROWSER_LOG_ENABLED', true),
   /** Сессионный мониторинг клиента → БД (POST client-monitor). */

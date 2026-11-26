@@ -5,7 +5,7 @@ import FormField from '@/components/FormField.vue'
 import SelectBox from '@/components/SelectBox.vue'
 import { BIO_MAX_LENGTH } from '@/core/cms/adp/js/userProfileForm.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { toISODate } from '@/js/utils/timeUtils.js'
+import { systemTodayIso } from '@/js/utils/timeUtils.js'
 
 const BIRTH_DATE_MIN = '1900-01-01'
 
@@ -57,7 +57,7 @@ const fieldMeta = computed(() => ({
     label: t('settings.profile.birthDate'),
     type: 'date',
     minDate: BIRTH_DATE_MIN,
-    maxDate: toISODate(new Date()),
+    maxDate: systemTodayIso(),
     inputFormat: 'dd MMMM yyyy',
     editFormat: 'dd.MM.yyyy',
   },

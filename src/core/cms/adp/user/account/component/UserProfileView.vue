@@ -4,7 +4,7 @@ import LoadingContentArea from '@/components/LoadingContentArea.vue'
 import { useUserStore } from '@/core/cms/js/userStore.js'
 import { USER_PROFILE_MAIN_FIELDS, USER_PROFILE_ADDITIONAL_FIELDS, mapUserProfileToFormData, } from '@/core/cms/adp/js/userProfileForm.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { formatDate } from '@/js/utils/timeUtils.js'
+import { formatDate, systemParts } from '@/js/utils/timeUtils.js'
 
 const { t } = useAppI18n()
 
@@ -26,11 +26,9 @@ const profileData = ref(null)
 const formData = computed(() => mapUserProfileToFormData(profileData.value))
 
 function ageInYears(year, month, day) {
-  const today = new Date()
-  let age = today.getFullYear() - year
-  const birthdayThisYear = new Date(today.getFullYear(), month - 1, day)
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  if (todayStart < birthdayThisYear) {
+  const today = systemParts(new Date())
+  let age = today.year - year
+  if (today.month < month || (today.month === month && today.day < day)) {
     age -= 1
   }
   return age

@@ -119,6 +119,7 @@ const config = defineConfig({
       CLIENT_MODULES: moduleName,
       CLIENT_MODULE_REMOTES: '',
       CLIENT_DEFAULT_LANGUAGE: env.DEFAULT_LANGUAGE || 'ru',
+      CLIENT_TIME_ZONE: env.TIME_ZONE || 'UTC',
       CLIENT_DISABLED_MODULES: env.DISABLED_MODULES || '',
       CLIENT_SYSTEM_VERSION: env.VERSION || '3.0.0',
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(String(v))]),

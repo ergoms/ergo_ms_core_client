@@ -1,8 +1,10 @@
 /**
- * Утилиты для работы с временем (локаль из vue-i18n).
+ * Утилиты для работы с временем.
+ * Язык подписей — из vue-i18n, пояс часов — TIME_ZONE системы (clientEnv.timeZone).
  */
 
 import { getCurrentBcp47, tGlobal } from '@/i18n/index.js'
+import { clientEnv } from '@/js/clientEnv.js'
 
 /**
  * Возвращает название месяца по номеру (1–12) на текущем языке.
@@ -25,6 +27,65 @@ function parseDate(date) {
     if (!date) return null
     const d = new Date(date)
     return isNaN(d.getTime()) ? null : d
+}
+
+/** Пояс часов интерфейса: TIME_ZONE из .env, тот же, что у сервера. */
+export function systemTimeZone() {
+    const name = String(clientEnv.timeZone || '').trim()
+    return name || 'UTC'
+}
+
+function zoneOptions(extra = {}) {
+    return { timeZone: systemTimeZone(), ...extra }
+}
+
+/**
+ * Календарные поля момента в поясе системы.
+ * @param {string|Date|number} [input]
+ */
+export function systemParts(input) {
+    const date = input instanceof Date ? input : (parseDate(input) || new Date())
+    const formatted = new Intl.DateTimeFormat('en-US', {
+        timeZone: systemTimeZone(),
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+        weekday: 'short',
+    }).formatToParts(date)
+    const bag = {}
+    for (const part of formatted) {
+        if (part.type !== 'literal') bag[part.type] = part.value
+    }
+    const weekdayMon0 = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
+    let hour = Number(bag.hour)
+    if (hour === 24) hour = 0
+    return {
+        year: Number(bag.year),
+        month: Number(bag.month),
+        day: Number(bag.day),
+        hour,
+        minute: Number(bag.minute),
+        second: Number(bag.second),
+        weekdayMon0: weekdayMon0[bag.weekday] ?? 0,
+    }
+}
+
+/** Полночь календарного дня системы, как число UTC для сравнения дней. */
+export function systemDayStamp(input) {
+    const parts = systemParts(input)
+    return Date.UTC(parts.year, parts.month - 1, parts.day)
+}
+
+/** Сегодня по календарю системы, YYYY-MM-DD. */
+export function systemTodayIso() {
+    const parts = systemParts(new Date())
+    const month = String(parts.month).padStart(2, '0')
+    const day = String(parts.day).padStart(2, '0')
+    return `${parts.year}-${month}-${day}`
 }
 
 function resolveNow(nowInput) {
@@ -92,34 +153,29 @@ export function formatChatListTime(date) {
     if (!targetDate) return ''
 
     const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const startOfYesterday = new Date(startOfToday)
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
-    const startOfTarget = new Date(
-        targetDate.getFullYear(),
-        targetDate.getMonth(),
-        targetDate.getDate(),
-    )
+    const dayMs = 86400000
+    const targetDay = systemDayStamp(targetDate)
+    const today = systemDayStamp(now)
 
     try {
         const locale = getCurrentBcp47()
-        if (startOfTarget.getTime() === startOfToday.getTime()) {
+        if (targetDay === today) {
             return formatTime(targetDate)
         }
-        if (startOfTarget.getTime() === startOfYesterday.getTime()) {
+        if (targetDay === today - dayMs) {
             return tGlobal('time.chatList.yesterday')
         }
-        if (targetDate.getFullYear() === now.getFullYear()) {
-            return new Intl.DateTimeFormat(locale, {
+        if (systemParts(targetDate).year === systemParts(now).year) {
+            return new Intl.DateTimeFormat(locale, zoneOptions({
                 day: '2-digit',
                 month: '2-digit',
-            }).format(targetDate)
+            })).format(targetDate)
         }
-        return new Intl.DateTimeFormat(locale, {
+        return new Intl.DateTimeFormat(locale, zoneOptions({
             day: '2-digit',
             month: '2-digit',
             year: '2-digit',
-        }).format(targetDate)
+        })).format(targetDate)
     } catch {
         return ''
     }
@@ -135,10 +191,10 @@ export function formatTime(date) {
     if (!targetDate) return ''
 
     try {
-        return new Intl.DateTimeFormat(getCurrentBcp47(), {
+        return new Intl.DateTimeFormat(getCurrentBcp47(), zoneOptions({
             hour: '2-digit',
             minute: '2-digit',
-        }).format(targetDate)
+        })).format(targetDate)
     } catch {
         return ''
     }
@@ -155,13 +211,13 @@ export function formatDateTime(date) {
     if (!targetDate) return '—'
 
     try {
-        return new Intl.DateTimeFormat(getCurrentBcp47(), {
+        return new Intl.DateTimeFormat(getCurrentBcp47(), zoneOptions({
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
-        }).format(targetDate)
+        })).format(targetDate)
     } catch {
         return '—'
     }
@@ -201,7 +257,7 @@ export function formatDateWeekdayTime(date) {
         const locale = getCurrentBcp47()
         const datePart = formatDate(date)
         if (!datePart) return ''
-        const weekday = new Intl.DateTimeFormat(locale, { weekday: 'long' })
+        const weekday = new Intl.DateTimeFormat(locale, zoneOptions({ weekday: 'long' }))
             .format(targetDate)
             .toLowerCase()
         const time = formatTime(targetDate)
@@ -236,7 +292,7 @@ export function getFullDateTime(date) {
     const targetDate = parseDate(date)
     if (!targetDate) return ''
 
-    return new Intl.DateTimeFormat(getCurrentBcp47(), {
+    return new Intl.DateTimeFormat(getCurrentBcp47(), zoneOptions({
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -244,7 +300,7 @@ export function getFullDateTime(date) {
         minute: '2-digit',
         second: '2-digit',
         weekday: 'long',
-    }).format(targetDate)
+    })).format(targetDate)
 }
 
 /**
@@ -257,9 +313,10 @@ export function formatDate(date) {
     const d = parseDate(date)
     if (!d) return String(date)
 
-    const dd = String(d.getDate()).padStart(2, '0')
-    const monthName = tGlobal(`time.monthsGenitive.${d.getMonth() + 1}`)
-    const yyyy = d.getFullYear()
+    const parts = systemParts(d)
+    const dd = String(parts.day).padStart(2, '0')
+    const monthName = tGlobal(`time.monthsGenitive.${parts.month}`)
+    const yyyy = parts.year
     return `${dd} ${monthName} ${yyyy}`
 }
 
@@ -272,11 +329,11 @@ export function formatDateShort(date) {
     const d = parseDate(date)
     if (!d) return ''
 
-    return d.toLocaleDateString(getCurrentBcp47(), {
+    return d.toLocaleDateString(getCurrentBcp47(), zoneOptions({
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-    })
+    }))
 }
 
 /**
@@ -344,8 +401,9 @@ export function formatMonthRange(startDate, endDate) {
     if (!start || !end) return ''
 
     const locale = getCurrentBcp47()
-    const startMonth = start.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-    const endMonth = end.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+    const monthYear = zoneOptions({ month: 'long', year: 'numeric' })
+    const startMonth = start.toLocaleDateString(locale, monthYear)
+    const endMonth = end.toLocaleDateString(locale, monthYear)
 
     return startMonth === endMonth ? startMonth : `${startMonth} — ${endMonth}`
 }
@@ -362,7 +420,11 @@ export function formatYearMonthKeyRu(monthKey) {
     const month = Number(monthStr)
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return '—'
 
-    return formatMonthYear(new Date(year, month - 1, 1)) || '—'
+    const label = new Date(Date.UTC(year, month - 1, 1, 12)).toLocaleDateString(
+        getCurrentBcp47(),
+        { month: 'long', year: 'numeric', timeZone: 'UTC' },
+    )
+    return capitalizeFirst(label) || '—'
 }
 
 /**
@@ -374,7 +436,7 @@ export function formatMonthYear(date) {
     const d = parseDate(date)
     if (!d) return ''
 
-    const label = d.toLocaleDateString(getCurrentBcp47(), { month: 'long', year: 'numeric' })
+    const label = d.toLocaleDateString(getCurrentBcp47(), zoneOptions({ month: 'long', year: 'numeric' }))
     if (!label) return ''
     return capitalizeFirst(label)
 }
@@ -393,7 +455,7 @@ export function formatWeekday(date, style = 'long') {
     }
 
     try {
-        const raw = new Intl.DateTimeFormat(getCurrentBcp47(), { weekday: style }).format(d)
+        const raw = new Intl.DateTimeFormat(getCurrentBcp47(), zoneOptions({ weekday: style })).format(d)
         return capitalizeFirst(raw)
     } catch {
         return ''
@@ -412,7 +474,7 @@ export function getWeekdayNames(style = 'long') {
 
     const names = []
     for (let i = 0; i < 7; i++) {
-        names.push(formatWeekday(new Date(2024, 0, 1 + i), style))
+        names.push(formatWeekday(new Date(Date.UTC(2024, 0, 1 + i, 12)), style))
     }
     return names
 }
@@ -470,27 +532,22 @@ function convertDateObjectToString(dateObj) {
 }
 
 export function getDefaultStartDate() {
-    const today = new Date()
-    const nextMonth = today.getMonth() + 1
-    const nextYear = nextMonth > 11 ? today.getFullYear() + 1 : today.getFullYear()
-    const actualNextMonth = nextMonth > 11 ? 0 : nextMonth
-
-    const firstDayOfNextMonth = new Date(nextYear, actualNextMonth, 1)
-    return formatDateLocal(firstDayOfNextMonth)
+    const today = systemParts(new Date())
+    let month = today.month + 1
+    let year = today.year
+    if (month > 12) {
+        month = 1
+        year += 1
+    }
+    return `${year}-${String(month).padStart(2, '0')}-01`
 }
 
 export function getDefaultEndDate(startDate = null) {
-    let targetYear
-
-    if (startDate) {
-        const startDateObj = parseDate(startDate)
-        targetYear = startDateObj ? startDateObj.getFullYear() : new Date().getFullYear()
-    } else {
-        targetYear = new Date().getFullYear()
-    }
-
-    const endOfYear = new Date(targetYear, 11, 31)
-    return formatDateLocal(endOfYear)
+    const match = typeof startDate === 'string' ? /^(\d{4})/.exec(startDate) : null
+    const targetYear = match
+        ? Number(match[1])
+        : systemParts(parseDate(startDate) || new Date()).year
+    return `${targetYear}-12-31`
 }
 
 export function formatWeekdayDate(date = new Date()) {
@@ -499,12 +556,12 @@ export function formatWeekdayDate(date = new Date()) {
 
     try {
         const locale = getCurrentBcp47()
-        const weekdayRaw = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(targetDate)
+        const weekdayRaw = new Intl.DateTimeFormat(locale, zoneOptions({ weekday: 'long' })).format(targetDate)
         const weekday = weekdayRaw.charAt(0).toUpperCase() + weekdayRaw.slice(1)
-        const dayMonth = new Intl.DateTimeFormat(locale, {
+        const dayMonth = new Intl.DateTimeFormat(locale, zoneOptions({
             day: 'numeric',
             month: 'long',
-        }).format(targetDate)
+        })).format(targetDate)
         const dayMonthNormalized = dayMonth.replace(
             /(\d+\s+)(.+)/,
             (_, prefix, month) => `${prefix}${month.toLowerCase()}`,
@@ -519,6 +576,7 @@ export function formatMonthYearGenitive(date) {
     const d = parseDate(date)
     if (!d) return ''
 
-    const monthName = tGlobal(`time.monthsGenitive.${d.getMonth() + 1}`)
-    return `${monthName} ${d.getFullYear()}`
+    const parts = systemParts(d)
+    const monthName = tGlobal(`time.monthsGenitive.${parts.month}`)
+    return `${monthName} ${parts.year}`
 }

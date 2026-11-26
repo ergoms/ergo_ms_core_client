@@ -1,4 +1,4 @@
-import { formatDateTime, formatTime } from '@/js/utils/timeUtils.js'
+import { formatDateTime, formatTime, systemTimeZone } from '@/js/utils/timeUtils.js'
 import { formatCount } from '@/js/utils/formatCount.js'
 
 function readCssColor(name, fallback) {
@@ -40,12 +40,20 @@ function axisText(iso, range) {
   if (range === '7d') {
     const date = new Date(iso)
     if (Number.isNaN(date.getTime())) return ''
-    return new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit' }).format(date)
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: systemTimeZone(),
+    }).format(date)
   }
   if (range === '24h') {
     const date = new Date(iso)
     if (Number.isNaN(date.getTime())) return ''
-    const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit' }).format(date)
+    const day = new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: systemTimeZone(),
+    }).format(date)
     return `${day} ${formatTime(date)}`
   }
   return formatTime(iso)

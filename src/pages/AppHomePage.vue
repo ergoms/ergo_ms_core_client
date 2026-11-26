@@ -5,13 +5,13 @@ import { Bot, Boxes, Cloud, FlaskConical, GitBranch, Layers, ServerCog, ShieldCh
 import SiteWordmark from '@/components/SiteWordmark.vue'
 import { useUserStore } from '@/core/cms/js/userStore.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
-import { formatWeekdayDate } from '@/js/utils/timeUtils.js'
+import { formatWeekdayDate, systemParts } from '@/js/utils/timeUtils.js'
 
 const { t } = useAppI18n()
 const userStore = useUserStore()
 
 const greeting = computed(() => {
-  const hour = new Date().getHours()
+  const hour = systemParts(new Date()).hour
   if (hour < 12) {
     return t('settings.home.goodMorning')
   }
