@@ -73,6 +73,7 @@ export default {
   },
   documentViewer: {
     title: 'Просмотр документа',
+    titleWithFile: 'Просмотр документа — {name}',
     loading: 'Загрузка документа…',
     loadError: 'Не удалось открыть документ',
     empty: 'Файл не указан',
@@ -99,6 +100,9 @@ export default {
     searchNext: 'Следующее совпадение',
     legendCurrent: 'Оранжевый — фрагмент, к которому открыли файл',
     legendOther: 'Жёлтый — остальные такие же фрагменты',
+    sheets: 'Листы книги',
+    sheetTruncated: 'Показаны первые {rows} строк и {cols} столбцов. Весь лист — в скачанном файле.',
+    sheetEmpty: 'Лист пустой',
   },
   sideDrawer: {
     close: 'Закрыть',

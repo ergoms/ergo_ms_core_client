@@ -29,14 +29,16 @@
 import { computed } from 'vue'
 import { Download, FileText, Trash2 } from '@lucide/vue'
 import docxIcon from '@/assets/icons/file-types/docx.svg'
+import xlsxIcon from '@/assets/icons/file-types/xlsx.svg'
 import { formatFileSize } from '@/js/utils/file-helpers'
 import { formatDate } from '@/js/utils/timeUtils.js'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import IconActionButton from '@/components/IconActionButton.vue'
 
-/** Иконки по расширению; при появлении pdf.svg / xlsx.svg — добавить сюда */
+/** Иконки по расширению; при появлении pdf.svg — добавить сюда */
 const FILE_TYPE_ICONS = {
   docx: docxIcon,
+  xlsx: xlsxIcon,
 }
 
 const props = defineProps({

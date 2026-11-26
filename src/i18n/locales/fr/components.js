@@ -73,6 +73,7 @@ export default {
   },
   documentViewer: {
     title: 'Aperçu du document',
+    titleWithFile: 'Aperçu du document — {name}',
     loading: 'Chargement du document…',
     loadError: 'Impossible d’ouvrir le document',
     empty: 'Aucun fichier indiqué',
@@ -99,6 +100,9 @@ export default {
     searchNext: 'Occurrence suivante',
     legendCurrent: 'Orange — le passage sur lequel le fichier s’est ouvert',
     legendOther: 'Jaune — les autres passages identiques',
+    sheets: 'Feuilles du classeur',
+    sheetTruncated: 'Seules les {rows} premières lignes et {cols} premières colonnes sont affichées. Téléchargez le fichier pour voir toute la feuille.',
+    sheetEmpty: 'La feuille est vide',
   },
   sideDrawer: {
     close: 'Fermer',

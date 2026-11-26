@@ -73,6 +73,7 @@ export default {
   },
   documentViewer: {
     title: 'Document preview',
+    titleWithFile: 'Document preview — {name}',
     loading: 'Loading document…',
     loadError: 'Could not open the document',
     empty: 'No file specified',
@@ -99,6 +100,9 @@ export default {
     searchNext: 'Next match',
     legendCurrent: 'Orange — the passage the file was opened on',
     legendOther: 'Yellow — the other matching passages',
+    sheets: 'Workbook sheets',
+    sheetTruncated: 'Showing the first {rows} rows and {cols} columns. Download the file to see the whole sheet.',
+    sheetEmpty: 'The sheet is empty',
   },
   sideDrawer: {
     close: 'Close',

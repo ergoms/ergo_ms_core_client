@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 36">
+  <title>xlsx</title>
+  <defs>
+    <linearGradient id="xlsx-sheet" x1="0" y1="0" x2="35" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3cb878"/>
+      <stop offset="1" stop-color="#17784a"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="35" height="36" rx="5.5" fill="url(#xlsx-sheet)"/>
+  <rect x="5" y="7" width="25" height="22" rx="2" fill="#fff"/>
+  <path d="M7 7h21a2 2 0 0 1 2 2v3H5V9a2 2 0 0 1 2-2Z" fill="#bfead2"/>
+  <path d="M5 12h5.5v17H7a2 2 0 0 1-2-2Z" fill="#bfead2"/>
+  <path d="M5 12h25M5 17.67h25M5 23.33h25M10.5 7v22M20.25 7v22" stroke="#17784a" stroke-width="1" fill="none"/>
+</svg>

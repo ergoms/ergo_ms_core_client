@@ -3,7 +3,7 @@
     standalone
     :modal-id="modalId"
     :visible="visible"
-    :title="title || t('components.documentViewer.title')"
+    :title="modalTitle"
     size="fullscreen"
     :scrollable="false"
     :centered="false"
@@ -26,14 +26,14 @@
 </template>
 
 <script setup>
-import { defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import ModalCenter from '@/components/ModalCenter.vue'
 import { useAppI18n } from '@/i18n/useAppI18n.js'
 import DocumentViewerLegend from '@/components/DocumentViewerLegend.vue'
 
 const DocumentViewer = defineAsyncComponent(() => import('@/components/DocumentViewer.vue'))
 
-defineProps({
+const props = defineProps({
   visible: {
     type: Boolean,
     default: false,
@@ -70,6 +70,13 @@ defineProps({
 
 const emit = defineEmits(['close'])
 const { t } = useAppI18n()
+
+// Свой заголовок вызывающего главнее; без него в шапке видно, какой файл открыт.
+const modalTitle = computed(() => {
+  if (props.title) return props.title
+  const name = String(props.filename || '').trim()
+  return name ? t('components.documentViewer.titleWithFile', { name }) : t('components.documentViewer.title')
+})
 </script>
 
 <style lang="scss">

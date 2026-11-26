@@ -9,13 +9,14 @@ import { browserMediaUrl, withoutMediaDownloadParam } from './mediaDownload.js'
 export const DOCUMENT_PREVIEW_KIND = Object.freeze({
   PDF: 'pdf',
   DOCX: 'docx',
+  XLSX: 'xlsx',
   UNSUPPORTED: 'unsupported',
 })
 
 /**
  * @param {string} [filename]
  * @param {string} [contentType]
- * @returns {'pdf'|'docx'|'unsupported'}
+ * @returns {'pdf'|'docx'|'xlsx'|'unsupported'}
  */
 export function detectDocumentPreviewKind(filename = '', contentType = '') {
   const name = String(filename || '').toLowerCase()
@@ -29,6 +30,10 @@ export function detectDocumentPreviewKind(filename = '', contentType = '') {
     || type.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
   ) {
     return DOCUMENT_PREVIEW_KIND.DOCX
+  }
+  // Старый .xls exceljs не читает: он остаётся с кнопкой «Скачать».
+  if (name.endsWith('.xlsx') || type.includes('spreadsheetml')) {
+    return DOCUMENT_PREVIEW_KIND.XLSX
   }
   return DOCUMENT_PREVIEW_KIND.UNSUPPORTED
 }

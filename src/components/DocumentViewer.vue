@@ -58,7 +58,7 @@
           </button>
         </HoverTooltip>
       </div>
-      <DocumentViewerFind v-if="kind === 'pdf' || kind === 'docx'" v-model="searchQuery" class="document-viewer__find" :current="searchIndex" :total="searchTotal" @next="stepSearch(1)" @prev="stepSearch(-1)"/>
+      <DocumentViewerFind v-if="kind !== 'unsupported'" v-model="searchQuery" class="document-viewer__find" :current="searchIndex" :total="searchTotal" @next="stepSearch(1)" @prev="stepSearch(-1)"/>
       <HoverTooltip v-if="src" :text="t('components.documentViewer.download')" wrap>
         <button type="button" class="document-viewer__icon-btn" :aria-label="t('components.documentViewer.download')" @click="downloadFile">
           <Download :size="18" aria-hidden="true" />
@@ -83,6 +83,7 @@
         </div>
       </div>
       <div v-else-if="kind === 'docx'" ref="docxHost" class="document-viewer__docx" v-csp-style="docxFitStyle"/>
+      <DocumentViewerSheet v-else-if="kind === 'xlsx'" :sheets="sheets" @rendered="runSearch(searchIndex)"/>
       <div v-else class="document-viewer__state">
         <p class="mb-2">{{ t('components.documentViewer.unsupported') }}</p>
         <button v-if="src" type="button" class="ui-btn ui-btn--primary" @click="downloadFile">
@@ -99,6 +100,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Columns2, Download, LayoutGrid, RectangleHorizontal, RectangleVertical, Square, ZoomIn, ZoomOut, } from '@lucide/vue'
 import DocumentViewerFind from '@/components/DocumentViewerFind.vue'
 import DocumentViewerPageHud from '@/components/DocumentViewerPageHud.vue'
+import DocumentViewerSheet from '@/components/DocumentViewerSheet.vue'
 import '@/components/documentViewerText.css'
 import HoverTooltip from '@/components/HoverTooltip.vue'
 import SpinnerLoading from '@/components/SpinnerLoading.vue'
@@ -109,6 +111,7 @@ import { DOCUMENT_PREVIEW_KIND, detectDocumentPreviewKind, fetchMediaBlob, } fro
 import { PDF_CSS_UNITS, fitPdfPageZoom, layoutColumns, pageRotation, pdfPageCssSize, waitForBox, } from '@/js/utils/documentViewerLayout.js'
 import { countDocxPages, DOCX_PAGES_FIT_WIDTH, fitDocxToStage, renderDocxDocument } from '@/js/utils/documentViewerDocx.js'
 import { applyDocumentSearch, clearDocumentSearch, scrollSearchRange, } from '@/js/utils/documentViewerSearch.js'
+import { readWorkbookSheets } from '@/js/utils/documentViewerXlsx.js'
 import { bindViewerStage, handlePdfStageWheel, pdfPageFromScroll, revealPdfPage, unbindViewerStage, viewerCanvases, } from '@/js/utils/documentViewerStage.js'
 
 const ZOOM_MIN = 0.15
@@ -149,6 +152,7 @@ const canvasStyles = ref([])
 const emptyStyle = {}
 const docxFitStyle = ref({})
 const docxHost = ref(null)
+const sheets = ref([])
 const stageRef = ref(null)
 const searchQuery = ref('')
 const searchIndex = ref(0)
@@ -166,18 +170,9 @@ let applyingFit = false
 
 const zoomLabel = computed(() => `${Math.round(zoom.value * 100)}%`)
 const pdfCols = computed(() => layoutColumns(pagesPerView.value))
-const isDocxFitWidth = computed(() => (
-  kind.value === DOCUMENT_PREVIEW_KIND.DOCX
-  && (pagesPerView.value === DOCX_PAGES_FIT_WIDTH || pagesPerView.value >= 4)
-))
-const pagesOverflowLabel = computed(() => (
-  kind.value === DOCUMENT_PREVIEW_KIND.DOCX
-    ? t('components.documentViewer.pagesFitWidth')
-    : t('components.documentViewer.pagesFour')
-))
-const pageEnd = computed(() => (
-  Math.min(pageCount.value, page.value + pdfCols.value - 1)
-))
+const isDocxFitWidth = computed(() => kind.value === DOCUMENT_PREVIEW_KIND.DOCX && (pagesPerView.value === DOCX_PAGES_FIT_WIDTH || pagesPerView.value >= 4))
+const pagesOverflowLabel = computed(() => t(`components.documentViewer.${kind.value === DOCUMENT_PREVIEW_KIND.DOCX ? 'pagesFitWidth' : 'pagesFour'}`))
+const pageEnd = computed(() => Math.min(pageCount.value, page.value + pdfCols.value - 1))
 const canNextPage = computed(() => pageEnd.value < pageCount.value)
 const pageLabel = computed(() => {
   if (pageEnd.value === page.value) {
@@ -313,6 +308,7 @@ function resetView() {
   canvasStyles.value = []
   docxNative = null
   docxFitStyle.value = {}
+  sheets.value = []
   if (docxHost.value) {
     docxHost.value.replaceChildren()
   }
@@ -320,11 +316,10 @@ function resetView() {
 }
 
 function runSearch(index) {
-  const pdf = kind.value === DOCUMENT_PREVIEW_KIND.PDF
-  const docx = kind.value === DOCUMENT_PREVIEW_KIND.DOCX
-  const host = pdf ? stageRef.value?.querySelector('.document-viewer__pdf') : docxHost.value
+  const selector = { [DOCUMENT_PREVIEW_KIND.PDF]: '.document-viewer__pdf', [DOCUMENT_PREVIEW_KIND.XLSX]: '.document-viewer-sheet__table' }[kind.value]
+  const host = kind.value === DOCUMENT_PREVIEW_KIND.DOCX ? docxHost.value : (selector && stageRef.value?.querySelector(selector))
   const loose = Boolean(props.highlight) && searchQuery.value === props.highlight
-  const applied = applyDocumentSearch(pdf || docx ? host : null, searchQuery.value, index, { loose })
+  const applied = applyDocumentSearch(host || null, searchQuery.value, index, { loose })
   searchTotal.value = applied.total
   searchIndex.value = applied.index
   if (applied.ranges[applied.index]) scrollSearchRange(applied.ranges[applied.index])
@@ -456,6 +451,9 @@ async function loadDocument() {
       pageCount.value = pdfDoc.numPages || 1
     } else if (result.kind === DOCUMENT_PREVIEW_KIND.DOCX) {
       docxBuffer = await result.blob.arrayBuffer()
+    } else if (result.kind === DOCUMENT_PREVIEW_KIND.XLSX) {
+      const read = await readWorkbookSheets(await result.blob.arrayBuffer())
+      if (token === loadToken) sheets.value = read
     }
   } catch (error) {
     if (token !== loadToken) {
