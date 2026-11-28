@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import { ChevronRight } from '@lucide/vue'
 import SelectBox from '@/components/SelectBox.vue'
 import HoverTooltip from '@/components/HoverTooltip.vue'
@@ -24,7 +25,24 @@ defineExpose({
   closeDropdown,
 })
 
-const { theme, THEME_OPTIONS } = useUiSettings()
+const { theme, language, THEME_OPTIONS, LANGUAGE_OPTIONS } = useUiSettings()
+
+const quickSettings = computed(() => [
+  {
+    key: 'theme',
+    model: theme,
+    options: THEME_OPTIONS.value,
+    icon: CORE_ICON.themeContrast,
+    label: t('menu.toolbar.theme'),
+  },
+  {
+    key: 'language',
+    model: language,
+    options: LANGUAGE_OPTIONS.value,
+    icon: CORE_ICON.language,
+    label: t('menu.toolbar.language'),
+  },
+])
 
 function openUserSettings() {
   closeDropdown()
@@ -49,16 +67,16 @@ function openUserSettings() {
             <span class="settings-menu__main-text">{{ t('menu.toolbar.settings') }}</span>
           </button>
         </li>
-        <li class="settings-menu__theme">
-          <SelectBox v-model="theme" :options="THEME_OPTIONS" :include-all-option="false" open-on-hover placement="right" :placement-gap="0" placement-align="center" hide-chevron :dropdown-min-width="200" dropdown-menu-class="settings-menu__theme-menu" class="settings-menu__theme-select">
+        <li v-for="item in quickSettings" :key="item.key" class="settings-menu__quick">
+          <SelectBox v-model="item.model.value" :options="item.options" :include-all-option="false" open-on-hover placement="right" :placement-gap="0" placement-align="center" hide-chevron class="settings-menu__quick-select">
             <template #selected="{ label }">
-              <span class="settings-menu__theme-trigger">
+              <span class="settings-menu__quick-trigger">
                 <span class="icon-flex settings-menu__item-icon">
-                  <LucideIcon :name="CORE_ICON.themeContrast" :size="18" />
+                  <LucideIcon :name="item.icon" :size="18" />
                 </span>
-                <span class="settings-menu__main-text settings-menu__theme-label text-truncate">{{ t('menu.toolbar.theme') }}</span>
-                <span class="settings-menu__theme-value text-muted text-truncate">{{ label }}</span>
-                <ChevronRight class="settings-menu__theme-chevron flex-shrink-0" :size="16" />
+                <span class="settings-menu__main-text settings-menu__quick-label text-truncate">{{ item.label }}</span>
+                <span class="settings-menu__quick-value text-muted text-truncate">{{ label }}</span>
+                <ChevronRight class="settings-menu__quick-chevron flex-shrink-0" :size="16" />
               </span>
             </template>
             <template #option="{ option, label }">
@@ -93,15 +111,30 @@ function openUserSettings() {
 
 .settings-dropdown-menu {
   @include dropdown-menu-base;
-  left: 50%;
-  transform: translate(-50%, -8px);
+  @include toolbar-dropdown-centered;
   min-width: min(220px, calc(100vw - 1rem));
   max-width: min(280px, calc(100vw - 1rem));
+  // Рамка, фон и отступы как у бокового списка SelectBox, чтобы меню и подменю выглядели одинаково.
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--color-primary-background, var(--bs-body-bg));
+  border: 1px solid var(--bs-border-color, var(--color-border));
+}
+
+.settings-dropdown-menu .settings-menu__item-row,
+.settings-menu__quick-select :deep(.select-trigger) {
+  padding: 0.375rem 0.75rem;
+}
+
+.settings-dropdown-menu .settings-menu__item-row.header-dropdown-item:hover,
+.settings-menu__quick-select :deep(.select-trigger:hover),
+.settings-menu__quick-select :deep(.select-trigger--open) {
+  background-color: var(--color-hover-background);
 }
 
 .settings-menu__main-text {
   font-size: 0.9375rem;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .settings-menu__item-icon {
@@ -119,35 +152,29 @@ function openUserSettings() {
   column-gap: 12px;
 }
 
-.settings-menu__theme {
+.settings-menu__quick {
   list-style: none;
 }
 
-.settings-menu__theme-select {
+.settings-menu__quick-select {
   width: 100%;
   --select-box-font-size: 0.9375rem;
 }
 
-.settings-menu__theme-select :deep(.select-trigger) {
+.settings-menu__quick-select :deep(.select-trigger) {
   background-color: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
   min-height: 0;
-  padding: 0.5rem 1rem;
   color: inherit;
 }
 
-.settings-menu__theme-select :deep(.select-trigger:hover),
-.settings-menu__theme-select :deep(.select-trigger--open) {
-  background-color: var(--bs-secondary-bg);
-}
-
-.settings-menu__theme-select :deep(.select-trigger:active:not(:disabled)) {
+.settings-menu__quick-select :deep(.select-trigger:active:not(:disabled)) {
   transform: none;
 }
 
-.settings-menu__theme-trigger {
+.settings-menu__quick-trigger {
   display: grid;
   grid-template-columns: 18px 1fr auto auto;
   align-items: center;
@@ -156,17 +183,19 @@ function openUserSettings() {
   min-width: 0;
 }
 
-.settings-menu__theme-label {
+.settings-menu__quick-label {
   min-width: 0;
 }
 
-.settings-menu__theme-value {
+.settings-menu__quick-value {
   font-size: 0.8125rem;
   max-width: 5.5rem;
 }
 
-.settings-menu__theme-chevron {
+.settings-menu__quick-chevron {
   opacity: 0.75;
+  // Штрих ChevronRight занимает середину рамки 16px; сдвиг выравнивает видимый отступ справа с иконкой слева.
+  margin-right: -4px;
 }
 
 .settings-menu__option {
@@ -181,40 +210,5 @@ function openUserSettings() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-</style>
-
-<style lang="scss">
-.settings-dropdown-menu.dropdown-enter-active,
-.settings-dropdown-menu.dropdown-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.settings-dropdown-menu.dropdown-enter-from {
-  opacity: 0;
-  transform: translate(-50%, -16px) !important;
-}
-
-.settings-dropdown-menu.dropdown-enter-to {
-  opacity: 1;
-  transform: translate(-50%, -8px) !important;
-}
-
-.settings-dropdown-menu.dropdown-leave-from {
-  opacity: 1;
-  transform: translate(-50%, -8px) !important;
-}
-
-.settings-dropdown-menu.dropdown-leave-to {
-  opacity: 0;
-  transform: translate(-50%, -16px) !important;
-}
-
-.settings-menu__theme-menu {
-  min-width: 12.5rem;
-}
-
-.settings-menu__theme-menu .dropdown-item {
-  padding-right: 1.5rem;
 }
 </style>

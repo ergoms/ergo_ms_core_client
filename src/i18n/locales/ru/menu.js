@@ -7,6 +7,7 @@ export default {
     logout: 'Выйти',
     search: 'Поиск',
     theme: 'Тема',
+    language: 'Язык',
   },
   sidebar: {
     collapse: 'Свернуть меню',

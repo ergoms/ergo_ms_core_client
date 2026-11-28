@@ -44,3 +44,27 @@
   padding: 0.5rem 0;
   list-style: none;
 }
+
+// Меню кнопки панели инструментов: по центру над кнопкой, появление через <Transition name="dropdown">.
+@mixin toolbar-dropdown-centered {
+  left: 50%;
+  transform: translate(-50%, -8px);
+
+  &.dropdown-enter-active,
+  &.dropdown-leave-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  &.dropdown-enter-from,
+  &.dropdown-leave-to {
+    opacity: 0;
+    transform: translate(-50%, -16px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &.dropdown-enter-active,
+    &.dropdown-leave-active {
+      transition: none;
+    }
+  }
+}

@@ -7,6 +7,7 @@ export default {
     logout: 'Se déconnecter',
     search: 'Rechercher',
     theme: 'Thème',
+    language: 'Langue',
   },
   sidebar: {
     collapse: 'Réduire le menu',

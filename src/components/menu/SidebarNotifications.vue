@@ -26,9 +26,15 @@ const props = defineProps({
 const { t } = useAppI18n()
 const emit = defineEmits(['dropdown-toggle'])
 const router = useRouter()
-const { dropdownRef, isOpen, toggleDropdown, closeDropdown } = useDropdown(emit)
+const { dropdownRef, isOpen, toggleDropdown, closeDropdown, closeAndFocusTrigger } = useDropdown(emit, {
+  // Первый Esc сворачивает раскрытое уведомление, второй закрывает панель.
+  onEscape: () => {
+    if (expandedNotificationId.value == null) return false
+    expandedNotificationId.value = null
+    return true
+  },
+})
 
-const triggerBtnRef = ref(null)
 const panelRef = ref(null)
 const listRef = ref(null)
 
@@ -67,10 +73,6 @@ function getItemElements() {
   return [...(listRef.value?.querySelectorAll('[data-notification-id]') || [])]
 }
 
-function focusTrigger() {
-  triggerBtnRef.value?.focus?.()
-}
-
 function focusItemAt(index) {
   const items = getItemElements()
   if (!items.length) return
@@ -85,19 +87,6 @@ function focusItemAt(index) {
 
 function onPanelKeydown(event) {
   if (!isOpen.value) return
-
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    event.stopPropagation()
-    if (expandedNotificationId.value != null) {
-      expandedNotificationId.value = null
-      return
-    }
-    closeDropdown()
-    nextTick(() => focusTrigger())
-    return
-  }
-
   if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
 
   const tag = event.target?.tagName
@@ -196,14 +185,8 @@ function handleToggle() {
 }
 
 function goToFullList() {
-  closeDropdown()
-  nextTick(() => focusTrigger())
+  closeAndFocusTrigger()
   router.push({ name: 'UserNotifications' })
-}
-
-function onActivate() {
-  closeDropdown()
-  nextTick(() => focusTrigger())
 }
 
 async function onHideSidebar(id) {
@@ -214,7 +197,7 @@ async function onHideSidebar(id) {
 <template>
   <div ref="dropdownRef" class="tools__notifications-wrapper">
     <HoverTooltip :text="t('menu.notifications.title')">
-      <button ref="triggerBtnRef" type="button" class="header-btn notifications-btn" :class="{ 'has-unread': hasUnread }" :aria-expanded="isOpen" :aria-controls="PANEL_ID" aria-haspopup="dialog" :aria-label="t('menu.notifications.title')" @click.stop="handleToggle">
+      <button type="button" class="header-btn notifications-btn" :class="{ 'has-unread': hasUnread }" :aria-expanded="isOpen" :aria-controls="PANEL_ID" aria-haspopup="dialog" :aria-label="t('menu.notifications.title')" @click.stop="handleToggle">
         <LucideMotionIcon :name="CORE_ICON.notifications" :size="props.iconSize" animate-on-hover animation="lucide-animated" trigger-target="closest:button" aria-hidden="true" />
         <span v-if="hasUnread" class="notifications-badge" aria-live="polite">{{ badgeLabel }}</span>
       </button>
@@ -241,7 +224,7 @@ async function onHideSidebar(id) {
 
             <div v-else class="notifications-dropdown__scroll">
               <ul ref="listRef" class="notifications-list" :aria-label="t('menu.notifications.listAria')">
-                <NotificationItem v-for="item in sidebarItems" :key="item.id" :notification="item" compact show-sidebar-hide :date-style="itemDateStyle(item)" @activate="onActivate" @mark-read="markRead" @hide-sidebar="onHideSidebar" @hover-start="onItemHoverStart" @hover-end="onItemHoverEnd"/>
+                <NotificationItem v-for="item in sidebarItems" :key="item.id" :notification="item" compact show-sidebar-hide :date-style="itemDateStyle(item)" @activate="closeAndFocusTrigger" @mark-read="markRead" @hide-sidebar="onHideSidebar" @hover-start="onItemHoverStart" @hover-end="onItemHoverEnd"/>
               </ul>
             </div>
           </LoadingContentArea>
@@ -313,8 +296,7 @@ async function onHideSidebar(id) {
 
 .notifications-dropdown {
   @include dropdown-menu-base;
-  left: 50%;
-  transform: translate(-50%, -8px);
+  @include toolbar-dropdown-centered;
   width: 360px;
   max-width: min(360px, 90vw);
   max-height: min(70dvh, calc(100dvh - 7rem));
@@ -478,36 +460,5 @@ async function onHideSidebar(id) {
     outline: 2px solid var(--color-accent, var(--bs-primary));
     outline-offset: 2px;
   }
-}
-</style>
-
-<style lang="scss">
-.notifications-dropdown.dropdown-enter-active,
-.notifications-dropdown.dropdown-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .notifications-dropdown.dropdown-enter-active,
-  .notifications-dropdown.dropdown-leave-active {
-    transition: none;
-  }
-}
-
-.notifications-dropdown.dropdown-enter-from {
-  opacity: 0;
-  transform: translate(-50%, -16px) !important;
-}
-.notifications-dropdown.dropdown-enter-to {
-  opacity: 1;
-  transform: translate(-50%, -8px) !important;
-}
-.notifications-dropdown.dropdown-leave-from {
-  opacity: 1;
-  transform: translate(-50%, -8px) !important;
-}
-.notifications-dropdown.dropdown-leave-to {
-  opacity: 0;
-  transform: translate(-50%, -16px) !important;
 }
 </style>

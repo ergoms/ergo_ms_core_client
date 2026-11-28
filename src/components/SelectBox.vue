@@ -3,13 +3,14 @@
         <label v-if="label" class="form-label mb-1" :for="triggerId">{{ label }}</label>
         <div class="dropdown" :class="{ 'is-open': isOpen }" @mouseenter="onHoverZoneEnter" @mouseleave="onHoverZoneLeave">
             <button :id="triggerId" class="btn btn-light w-100 d-flex align-items-center justify-content-between select-trigger" :class="{ 'select-trigger--open': isOpen, 'select-trigger--open-up': isOpen && menuOpensUpward, }" type="button" :disabled="disabled" :aria-label="triggerAriaLabel" :aria-expanded="isOpen" :aria-controls="listboxId" aria-haspopup="listbox" @click="toggle" @blur="$emit('blur')">
-                <span class="select-trigger-slot d-flex align-items-center flex-grow-1 me-2">
+                <span class="select-trigger-slot d-flex align-items-center flex-grow-1" :class="{ 'me-2': !hideChevron }">
                     <slot name="selected" :option="selectedOption" :label="currentLabel">
                         <span class="value-text">{{ currentLabel }}</span>
                     </slot>
                 </span>
                 <span v-if="!hideChevron" class="d-inline-flex align-items-center select-trigger-chevron" :class="{ 'select-trigger-chevron--open': isOpen }" aria-hidden="true"><LucideIcon name="ChevronDown" class="icon-center" /></span>
             </button>
+                <Transition name="select-box-side" :css="placement === 'right'">
                 <div v-if="isOpen" ref="menuAnchorEl" class="dropdown-menu show" :popover="menuTopLayer ? 'manual' : undefined" :class="{ 'dropdown-menu--top-layer': menuTopLayer, 'dropdown-menu--up': menuOpensUpward, 'dropdown-menu--side': placement === 'right', 'dropdown-menu--align-center': placement === 'right' && placementAlign === 'center', 'select-box-menu--uniform-font': uniformDropdownListFont, [dropdownMenuClass]: Boolean(dropdownMenuClass), }" v-csp-style="menuStyle" role="listbox" :id="listboxId" :aria-labelledby="triggerId" @mouseenter="onHoverZoneEnter" @mouseleave="onHoverZoneLeave">
                         <SearchInput v-if="searchable" ref="searchInputEl" v-model="searchQuery" class="select-box-search" layout="fill" :show-icon="false" :clearable="true" :placeholder="resolvedSearchPlaceholder"/>
                         <template v-if="!virtualized">
@@ -89,6 +90,7 @@
                             </div>
                         </template>
                 </div>
+                </Transition>
         </div>
     </div>
 </template>

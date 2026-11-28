@@ -7,6 +7,7 @@ export default {
     logout: 'Log out',
     search: 'Search',
     theme: 'Theme',
+    language: 'Language',
   },
   sidebar: {
     collapse: 'Collapse menu',

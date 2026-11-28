@@ -134,6 +134,22 @@
     transform: translateY(-50%);
 }
 
+// Боковой список (open-on-hover) при переходе между соседними триггерами плавно сменяет друг друга.
+// translate, а не transform: transform уже занят центрированием и верхним слоем.
+.select-box-side-enter-active {
+    transition: opacity 0.18s ease, translate 0.18s ease;
+}
+
+.select-box-side-leave-active {
+    transition: opacity 0.12s ease, translate 0.12s ease;
+}
+
+.select-box-side-enter-from,
+.select-box-side-leave-to {
+    opacity: 0;
+    translate: -6px 0;
+}
+
 // Верхний слой (popover): координаты от окна, overflow и transform предков не действуют.
 .dropdown-menu.dropdown-menu--top-layer {
     position: fixed;

@@ -100,6 +100,29 @@ export function releaseCspStyle(el) {
   scheduleFlush()
 }
 
+// Предел ожидания, чтобы правило не висело, если элемент так и не убрали из DOM.
+const RELEASE_WAIT_MAX_MS = 2000
+
+/**
+ * Vue вызывает unmounted до конца leave-анимации <Transition>. Пока элемент на странице,
+ * правило нужно сохранить, иначе уходящий overlay теряет координаты и прыгает в угол окна.
+ */
+function releaseWhenDetached(el) {
+  if (!el.isConnected || typeof requestAnimationFrame !== 'function') {
+    releaseCspStyle(el)
+    return
+  }
+  const startedAt = performance.now()
+  const check = () => {
+    if (el.isConnected && performance.now() - startedAt < RELEASE_WAIT_MAX_MS) {
+      requestAnimationFrame(check)
+      return
+    }
+    releaseCspStyle(el)
+  }
+  requestAnimationFrame(check)
+}
+
 export const vCspStyle = {
   mounted(el, binding) {
     applyCspStyle(el, binding.value)
@@ -108,7 +131,7 @@ export const vCspStyle = {
     applyCspStyle(el, binding.value)
   },
   unmounted(el) {
-    releaseCspStyle(el)
+    releaseWhenDetached(el)
   },
 }
 
